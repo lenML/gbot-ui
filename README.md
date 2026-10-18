@@ -1,5 +1,7 @@
 # gbot-ui
 
+![gbot-ui interface](./assets/banner.webp)
+
 `.baby-grok-bot` 完整业务界面的 React 源码组件库。包含 desktop/mobile shell、统一 chat list、群聊、settings、computer/screen、ASR、动态 SVG avatar、context menu、transcript 与 composer。
 
 推荐像 shadcn/ui 一样复制源码使用，不绑定包版本，所有组件和业务逻辑都可以直接修改。
