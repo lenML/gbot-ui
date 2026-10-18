@@ -1101,8 +1101,29 @@ function createGrokBotStore(
       );
     if (!profile) return null;
 
-    const conversationId = `chat-${createLiveId()}`;
     const normalizedBotId = profile.botId ?? profile.id;
+    const existingConversation = [...state.agents]
+      .filter(
+        (candidate) =>
+          !candidate.isGroup &&
+          (candidate.botId ?? candidate.id) === normalizedBotId,
+      )
+      .sort((left, right) => {
+        if (Boolean(left.isPinned) !== Boolean(right.isPinned)) {
+          return left.isPinned ? -1 : 1;
+        }
+        return right.lastActivityAt - left.lastActivityAt;
+      })[0];
+
+    if (existingConversation) {
+      const hiddenAgentIds = new Set(state.hiddenAgentIds);
+      hiddenAgentIds.delete(existingConversation.id);
+      commit({ hiddenAgentIds });
+      openAgent(existingConversation.id);
+      return existingConversation.id;
+    }
+
+    const conversationId = normalizedBotId;
     const conversation: GrokBotAgent = {
       ...profile,
       id: conversationId,

@@ -541,6 +541,7 @@ export interface GrokBotActions {
   setComposeMode(mode: GrokBotComposeMode): void;
   setComposeQuery(query: string): void;
   createAgent(name: string): void;
+  /** Opens the bot's sole direct conversation, creating it only when absent. */
   createConversation(botId: string): string | null;
   renameConversation(conversationId: string, title: string): void;
   openCreateGroup(): void;

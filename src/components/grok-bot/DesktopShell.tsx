@@ -122,7 +122,7 @@ function ComposeNewAgent() {
           onClick={submit}
           type="button"
         >
-          {isBotMode ? "Create bot" : matches[0] ? "Start chat" : "New bot"}
+          {isBotMode ? "Create bot" : matches[0] ? "Open chat" : "New bot"}
         </button>
       </div>
 
@@ -130,12 +130,12 @@ function ComposeNewAgent() {
         <div className="mx-auto flex max-w-[560px] flex-col gap-4">
           <div>
             <h2 className="text-[20px] leading-7 font-medium tracking-[-0.3px] text-[color:var(--cursor-text-primary)]">
-              {isBotMode ? "Create a new bot" : "Start a private chat"}
+              {isBotMode ? "Create a new bot" : "Open a private chat"}
             </h2>
             <p className="mt-1 text-[13px] leading-5 text-[color:var(--cursor-text-secondary)]">
               {isBotMode
                 ? "Create a bot profile. Its first private chat opens automatically."
-                : "Choose a bot. Every selection creates an independent private session."}
+                : "Choose a bot. It has one private chat entry."}
             </p>
           </div>
 
@@ -165,7 +165,7 @@ function ComposeNewAgent() {
                     </span>
                   </span>
                   <span className="shrink-0 text-[11px] leading-4 text-[color:var(--cursor-text-tertiary)]">
-                    New chat
+                    Open
                   </span>
                 </button>
               ))}

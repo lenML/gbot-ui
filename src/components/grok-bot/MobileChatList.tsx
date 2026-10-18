@@ -457,7 +457,7 @@ export function MobileChatList({
           ) : null}
 
           <button
-            aria-label="New conversation"
+            aria-label="Open conversation"
             className="flex size-8 shrink-0 items-center justify-center rounded-full border-[0.5px] border-[var(--grok-bot-border-default)] bg-[var(--grok-bot-bg-elevated)] text-[color:var(--cursor-text-secondary)] shadow-sm backdrop-blur-xl hover:text-[color:var(--cursor-text-primary)]"
             onClick={openCreate}
             type="button"

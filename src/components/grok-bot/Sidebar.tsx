@@ -199,7 +199,7 @@ function NewConversationMenu({
 }) {
   return (
     <div
-      aria-label="New conversation"
+      aria-label="Open or create conversation"
       className={cn(
         "baby-grok-bot-new-chat-menu",
         collapsed && "baby-grok-bot-new-chat-menu--collapsed",
@@ -209,8 +209,8 @@ function NewConversationMenu({
       <button onClick={onNewChat} role="menuitem" type="button">
         <GrokBotIcon name="plus" size={14} />
         <span>
-          <strong>New chat</strong>
-          <small>Create a private bot conversation</small>
+          <strong>Open chat</strong>
+          <small>Open a bot's private conversation</small>
         </span>
       </button>
       <button onClick={onNewBot} role="menuitem" type="button">
@@ -446,10 +446,10 @@ export function Sidebar() {
               <button
                 aria-expanded={newMenuOpen}
                 aria-haspopup="menu"
-                aria-label="Create chat or group"
+                aria-label="Open chat or create bot or group"
                 className="baby-grok-bot-sidebar-header__action focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--grok-bot-current-agent-accent)]"
                 onClick={() => setNewMenuOpen((open) => !open)}
-                title="Create chat or group"
+                title="Open chat or create bot or group"
                 type="button"
               >
                 <GrokBotIcon name="plus" size={14} />
@@ -582,10 +582,10 @@ export function Sidebar() {
             <GrokBotIcon name="gear" size={15} />
           </button>
           <button
-            aria-label="New chat"
+            aria-label="Open private chat"
             className="baby-grok-bot-sidebar-footer__action focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--grok-bot-current-agent-accent)]"
             onClick={openCompose}
-            title="New chat"
+            title="Open private chat"
             type="button"
           >
             <GrokBotIcon name="plus" size={15} />

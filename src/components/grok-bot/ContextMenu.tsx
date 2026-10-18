@@ -282,13 +282,6 @@ export function ContextMenu({ className }: ContextMenuProps) {
           );
         },
       });
-      if (!agent.isGroup) {
-        menuActions.push({
-          id: "new-chat",
-          label: "New chat with this bot",
-          onSelect: () => actions.createConversation(agent.botId ?? agent.id),
-        });
-      }
       menuActions.push({
         id: "copy-id",
         label: "Copy conversation ID",

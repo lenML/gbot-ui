@@ -229,14 +229,12 @@ export function GrokBotMobileApp({
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-[18px] leading-6 font-medium tracking-[-0.25px]">
-                    {state.composeMode === "bot"
-                      ? "New bot"
-                      : "New private chat"}
+                    {state.composeMode === "bot" ? "New bot" : "Private chat"}
                   </h2>
                   <p className="mt-1 text-[13px] leading-[18px] text-[color:var(--cursor-text-tertiary)]">
                     {state.composeMode === "bot"
-                      ? "Create a reusable bot profile and its first session."
-                      : "Choose a bot. Every choice opens an independent session."}
+                      ? "Create a reusable bot profile and its first private chat."
+                      : "Choose a bot. It has one private chat entry."}
                   </p>
                 </div>
                 <button
@@ -281,7 +279,7 @@ export function GrokBotMobileApp({
                           {bot.name}
                         </span>
                         <span className="block truncate text-[12px] leading-4 text-[color:var(--cursor-text-tertiary)]">
-                          {bot.title ?? "Start a new private session"}
+                          {bot.title ?? "Open private chat"}
                         </span>
                       </span>
                     </button>
@@ -298,7 +296,7 @@ export function GrokBotMobileApp({
                 }
                 type="submit"
               >
-                {state.composeMode === "bot" ? "Create bot" : "Start chat"}
+                {state.composeMode === "bot" ? "Create bot" : "Open chat"}
               </button>
               {state.composeMode === "chat" ? (
                 <button

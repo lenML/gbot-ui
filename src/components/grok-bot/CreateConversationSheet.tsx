@@ -183,18 +183,18 @@ export function CreateConversationSheet({
           className="baby-grok-bot-create-conversation-sheet__handle"
         />
         <header className="baby-grok-bot-create-conversation-sheet__header">
-          <h2 id={titleId}>Create conversation</h2>
+          <h2 id={titleId}>Start a conversation</h2>
           <p id={descriptionId}>
-            Start a private session, create a bot, or bring several bots
+            Open a bot's private chat, create a bot, or bring several bots
             together.
           </p>
         </header>
         <div className="baby-grok-bot-create-conversation-sheet__options">
           <ConversationOption
-            description="Choose a bot and open an independent private session."
+            description="Choose a bot and open its private chat."
             icon={<ChatIcon />}
             onClick={() => runAction(onCreateChat)}
-            title="New chat"
+            title="Open chat"
           />
           <ConversationOption
             description="Create a reusable profile with tools and a computer."
