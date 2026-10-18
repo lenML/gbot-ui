@@ -604,4 +604,8 @@
   .baby-grok-bot-screen-layer[data-state] .baby-grok-bot-screen-scrim {
     animation-duration: 1ms;
   }
+
+  .baby-grok-bot-screen-shell[data-sheet-interacted] {
+    transition: none;
+  }
 }

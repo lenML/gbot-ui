@@ -35,7 +35,7 @@ function isNativeContextTarget(target: Element): boolean {
 function transcriptEntryElements(root: HTMLElement): HTMLElement[] {
   return Array.from(
     root.querySelectorAll<HTMLElement>(
-      ":scope > div > .baby-grok-bot-entry-enter",
+      ":scope > div > .baby-grok-bot-entry",
     ),
   );
 }
@@ -230,7 +230,7 @@ export function DesktopShell({ className }: DesktopShellProps) {
     }
 
     const entryElement = target.closest<HTMLElement>(
-      ".baby-grok-bot-entry-enter",
+      ".baby-grok-bot-entry",
     );
     const transcriptRoot = entryElement?.closest<HTMLElement>('[role="log"]');
     if (!entryElement || !transcriptRoot) return;
@@ -262,7 +262,7 @@ export function DesktopShell({ className }: DesktopShellProps) {
     const activeElement = document.activeElement;
     if (activeElement instanceof Element) {
       entryElement = activeElement.closest<HTMLElement>(
-        ".baby-grok-bot-entry-enter",
+        ".baby-grok-bot-entry",
       );
     }
 
