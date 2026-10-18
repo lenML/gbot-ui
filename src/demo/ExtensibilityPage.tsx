@@ -133,8 +133,8 @@ const EXTENSION_LAYERS: ExtensionLayer[] = [
   },
   {
     label: "Runtime",
-    api: "computer · ASR adapters",
-    detail: "Swap VNC/noVNC computer renderers and connect external speech recognition.",
+    api: "computer · ASR · reply adapters",
+    detail: "Swap VNC/noVNC renderers, speech recognition, and async thinking/token reply streams.",
     status: "API",
   },
   {
@@ -151,8 +151,8 @@ const EXTENSION_LAYERS: ExtensionLayer[] = [
   },
   {
     label: "Transport boundary",
-    api: "stream · persistence · groups",
-    detail: "Currently internal. Forking these requires a dedicated adapter contract in the next SDK layer.",
+    api: "persistence · groups",
+    detail: "Reply streaming is exposed through integrations.reply; persistence and server-side group mutation remain host-owned boundaries.",
     status: "NEXT",
   },
 ];
