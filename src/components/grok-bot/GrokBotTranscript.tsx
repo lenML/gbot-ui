@@ -1,8 +1,12 @@
 import { memo, useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { useReducedMotion } from "motion/react";
-import { useGrokBotSlots } from "../../lib/grok-bot/store";
-import { getAgentPalette } from "../../lib/types";
+import {
+  useActiveAgent,
+  useGrokBotActions,
+  useGrokBotStore,
+  useGrokBotSlots,
+} from "../../lib/grok-bot/store";
 import type {
   ComposingBeat,
   GrokBotMessageAttachment,
@@ -12,12 +16,14 @@ import type {
   TranscriptThinkingEntry,
 } from "../../lib/grok-bot/types";
 import { GrokBotMark } from "../GrokBotMark";
+import { GrokBotMarkdownContent } from "./MarkdownMessage";
 import {
   getAttachmentDetail,
   getAttachmentIconName,
   getAttachmentLabel,
 } from "./AttachmentMenu";
 import { GrokBotIcon } from "./AgentAvatar";
+import { entryMenuText } from "./ContextMenu";
 import {
   ComputerUseCard,
   MultipleChoiceCard,
@@ -26,7 +32,6 @@ import {
 } from "./TranscriptCards";
 import { TranscriptSystemEvent } from "./TranscriptSystemEvent";
 
-const MARKDOWN_TOKEN = /(\*\*[^*]+\*\*|`[^`]+`|@\[[^\]]+\])/g;
 const TIMESTAMP_GAP_MS = 45 * 60 * 1000;
 const SOURCE_KIND_LABELS: Record<GrokBotMessageSourceKind, string> = {
   agent: "Agent",
@@ -39,46 +44,6 @@ const SOURCE_KIND_LABELS: Record<GrokBotMessageSourceKind, string> = {
 
 const cn = (...values: Array<string | false | null | undefined>) =>
   values.filter(Boolean).join(" ");
-
-function renderMarkdown(content: string): ReactNode[] {
-  return content.split(MARKDOWN_TOKEN).map((part, index) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={index}>{part.slice(2, -2)}</strong>;
-    }
-
-    if (part.startsWith("`") && part.endsWith("`")) {
-      return <code key={index}>{part.slice(1, -1)}</code>;
-    }
-
-    if (part.startsWith("@[") && part.endsWith("]")) {
-      const name = part.slice(2, -1);
-      const palette = getAgentPalette(name);
-
-      return (
-        <span
-          className="baby-grok-bot-message-mention"
-          key={index}
-          style={{ color: palette.pillForeground }}
-        >
-          <span className="baby-grok-bot-message-mention__face">
-            <span
-              className="grok-bot-lazy grok-bot-mark--fill"
-              style={{ width: 14, height: 14 }}
-            >
-              <GrokBotMark
-                background="var(--grok-bot-bg-editor, #ffffff)"
-                foreground={palette.avatar}
-              />
-            </span>
-          </span>
-          {name}
-        </span>
-      );
-    }
-
-    return <span key={index}>{part}</span>;
-  });
-}
 
 function startOfDay(date: Date): number {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
@@ -169,16 +134,105 @@ function Reactions({
   );
 }
 
-function StreamingCaret() {
+function MessageActions({ entry }: { entry: GrokBotTranscriptEntry }) {
+  const actions = useGrokBotActions();
+  const agent = useActiveAgent();
+  const { state } = useGrokBotStore();
+  const [copied, setCopied] = useState(false);
+  const text = entryMenuText(entry);
+  const menuOpen =
+    state.contextMenu?.target.kind === "message" &&
+    state.contextMenu.target.agentId === agent?.id &&
+    state.contextMenu.target.entryId === entry.id;
+
+  useEffect(() => {
+    if (!copied) return;
+    const timeout = window.setTimeout(() => setCopied(false), 1_200);
+    return () => window.clearTimeout(timeout);
+  }, [copied]);
+
+  const copy = () => {
+    if (!navigator.clipboard || !text) return;
+    void navigator.clipboard
+      .writeText(text)
+      .then(() => setCopied(true))
+      .catch(() => undefined);
+  };
+
   return (
-    <span
-      aria-hidden="true"
-      className="ml-0.5 inline-block h-[1em] w-px animate-pulse bg-current align-[-0.1em] motion-reduce:animate-none"
-    />
+    <div
+      className="baby-grok-bot-message-actions"
+      data-menu-open={menuOpen || undefined}
+      role="toolbar"
+    >
+      <button
+        aria-label={copied ? "Copied" : "Copy message"}
+        className="baby-grok-bot-message-action"
+        data-copied={copied || undefined}
+        onClick={copy}
+        type="button"
+      >
+        <svg aria-hidden="true" fill="none" viewBox="0 0 16 16">
+          {copied ? (
+            <path
+              d="m3.5 8.25 2.5 2.5 6-6"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.4"
+            />
+          ) : (
+            <>
+              <rect
+                height="8"
+                rx="1.5"
+                stroke="currentColor"
+                strokeWidth="1.2"
+                width="8"
+                x="3.5"
+                y="4.5"
+              />
+              <path
+                d="M6 4.5V3.25A1.25 1.25 0 0 1 7.25 2h5A1.25 1.25 0 0 1 13.5 3.25v5A1.25 1.25 0 0 1 12.25 9.5H11.5"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeWidth="1.2"
+              />
+            </>
+          )}
+        </svg>
+        <span>{copied ? "Copied" : "Copy"}</span>
+      </button>
+      <button
+        aria-label="More message actions"
+        className="baby-grok-bot-message-action baby-grok-bot-message-action--icon"
+        onClick={(event) => {
+          if (!agent) return;
+          const rect = event.currentTarget.getBoundingClientRect();
+          actions.openContextMenu({
+            target: {
+              kind: "message",
+              agentId: agent.id,
+              entryId: entry.id,
+            },
+            x: Math.min(rect.right, window.innerWidth - 16),
+            y: Math.min(rect.bottom + 4, window.innerHeight - 16),
+          });
+        }}
+        type="button"
+      >
+        <svg aria-hidden="true" fill="currentColor" viewBox="0 0 16 16">
+          <circle cx="3" cy="8" r="1" />
+          <circle cx="8" cy="8" r="1" />
+          <circle cx="13" cy="8" r="1" />
+        </svg>
+      </button>
+    </div>
   );
 }
 
-interface MessageViewProps {
+ interface MessageViewProps {
+  actions?: ReactNode;
   attachments?: readonly GrokBotMessageAttachment[];
   author?: string;
   content: string;
@@ -260,6 +314,7 @@ function TranscriptAttachments({
 }
 
 function MessageView({
+  actions,
   attachments,
   author,
   content,
@@ -269,8 +324,17 @@ function MessageView({
   source,
   streaming = false,
 }: MessageViewProps) {
+  const slots = useGrokBotSlots();
+  const MessageContentSlot = slots.messageContent;
   const side = role === "user" ? "user" : "agent";
   const showBubble = content.trim().length > 0 || streaming;
+  const renderedContent = (
+    <GrokBotMarkdownContent
+      content={content}
+      role={role}
+      streaming={streaming}
+    />
+  );
   const bubbleStyle: CSSProperties = {
     background:
       role === "user"
@@ -289,7 +353,7 @@ function MessageView({
     <div
       aria-busy={streaming || undefined}
       className={cn(
-        "baby-grok-bot-md whitespace-pre-wrap px-3 py-2 text-[14px] leading-5 tracking-[-0.15px]",
+        "baby-grok-bot-md px-3 py-2 text-[14px] leading-5 tracking-[-0.15px]",
         role === "user" && "rounded-2xl",
       )}
       style={bubbleStyle}
@@ -304,11 +368,17 @@ function MessageView({
             <span className="baby-grok-bot-empty-stream__dot" key={dot} />
           ))}
         </span>
+      ) : MessageContentSlot ? (
+        <MessageContentSlot
+          content={content}
+          role={role}
+          source={source}
+          streaming={streaming}
+        >
+          {renderedContent}
+        </MessageContentSlot>
       ) : (
-        <>
-          {renderMarkdown(content)}
-          {streaming ? <StreamingCaret /> : null}
-        </>
+        renderedContent
       )}
     </div>
   ) : null;
@@ -325,6 +395,7 @@ function MessageView({
           {reactions && reactions.length > 0 ? (
             <Reactions reactions={reactions} side="user" />
           ) : null}
+          {actions}
         </div>
       </div>
     );
@@ -346,6 +417,7 @@ function MessageView({
         {reactions && reactions.length > 0 ? (
           <Reactions reactions={reactions} side="agent" />
         ) : null}
+        {actions}
       </div>
     </div>
   );
@@ -365,16 +437,8 @@ function formatThinkingDuration(durationMs?: number): string | null {
 
 function ThinkingRow({ entry }: { entry: TranscriptThinkingEntry }) {
   const status = entry.status ?? "complete";
-  const [isOpen, setIsOpen] = useState(status === "thinking");
-  const previousStatusRef = useRef(status);
+  const [isOpen, setIsOpen] = useState(false);
   const duration = formatThinkingDuration(entry.durationMs);
-
-  useEffect(() => {
-    if (previousStatusRef.current === "thinking" && status !== "thinking") {
-      setIsOpen(false);
-    }
-    previousStatusRef.current = status;
-  }, [status]);
   const label =
     status === "thinking"
       ? "Thinking"
@@ -421,11 +485,18 @@ function ThinkingRow({ entry }: { entry: TranscriptThinkingEntry }) {
   );
 }
 
-function EntryContent({ entry }: { entry: GrokBotTranscriptEntry }) {
+function EntryContent({
+  actions,
+  entry,
+}: {
+  actions?: ReactNode;
+  entry: GrokBotTranscriptEntry;
+}) {
   switch (entry.kind) {
     case "message":
       return (
         <MessageView
+          actions={actions}
           attachments={entry.attachments}
           author={entry.role === "assistant" ? entry.author : undefined}
           content={entry.content}
@@ -440,6 +511,7 @@ function EntryContent({ entry }: { entry: GrokBotTranscriptEntry }) {
     case "send-message":
       return entry.message.type === "text" ? (
         <MessageView
+          actions={actions}
           author={entry.author?.name}
           content={entry.message.content}
           interrupted={entry.interrupted}
@@ -509,30 +581,37 @@ function entrySignature(entry: GrokBotTranscriptEntry | undefined): string {
 }
 
 interface EntryItemProps {
-  enterDelayMs?: number;
+  animate: boolean;
   entry: GrokBotTranscriptEntry;
   roleChanged: boolean;
   timestampMs: number | null;
 }
 
 const EntryItem = memo(function EntryItem({
-  enterDelayMs,
+  animate,
   entry,
   roleChanged,
   timestampMs,
 }: EntryItemProps) {
+  const role = entryRole(entry);
+  const hasMessageActions =
+    entry.kind === "message" || entry.kind === "send-message";
+
   return (
     <div
       className={cn(
-        "baby-grok-bot-entry-enter",
-        entry.reactions && entry.reactions.length > 0 && "mb-[14px]",
+        "baby-grok-bot-entry",
+        animate && "baby-grok-bot-entry-enter",
+        hasMessageActions
+          ? "mb-[30px]"
+          : entry.reactions && entry.reactions.length > 0 && "mb-[14px]",
         roleChanged
           ? "mt-3 first:mt-0"
           : timestampMs !== null
             ? "mt-2 first:mt-0"
             : undefined,
       )}
-      style={enterDelayMs === undefined ? undefined : { animationDelay: `${enterDelayMs}ms` }}
+      data-role={role}
     >
       {timestampMs !== null ? (
         <div className="mb-2">
@@ -546,7 +625,14 @@ const EntryItem = memo(function EntryItem({
           </div>
         </div>
       ) : null}
-      <EntryContent entry={entry} />
+      <div className="baby-grok-bot-message-action-anchor" data-role={role}>
+        <EntryContent
+          actions={
+            hasMessageActions ? <MessageActions entry={entry} /> : undefined
+          }
+          entry={entry}
+        />
+      </div>
     </div>
   );
 });
@@ -616,7 +702,11 @@ export function GrokBotTranscript({
     composing: false,
     signature: "none",
   });
-  const [fresh, setFresh] = useState(true);
+  const knownEntryIdsRef = useRef<Set<string> | null>(null);
+  const animationTimerRef = useRef<number | null>(null);
+  const [animatedEntryIds, setAnimatedEntryIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const reducedMotion = useReducedMotion() ?? false;
   const slots = useGrokBotSlots();
   const TranscriptEntrySlot = slots.transcriptEntry;
@@ -626,9 +716,32 @@ export function GrokBotTranscript({
   }, [onAtBottomChange]);
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => setFresh(false), 700);
-    return () => window.clearTimeout(timeout);
-  }, []);
+    const currentIds = new Set(entries.map((entry) => entry.id));
+    const knownIds = knownEntryIdsRef.current;
+    knownEntryIdsRef.current = currentIds;
+    if (!knownIds) return;
+
+    const addedIds = [...currentIds].filter((id) => !knownIds.has(id));
+    if (addedIds.length === 0) return;
+
+    if (animationTimerRef.current !== null) {
+      window.clearTimeout(animationTimerRef.current);
+    }
+    setAnimatedEntryIds(new Set(addedIds));
+    animationTimerRef.current = window.setTimeout(() => {
+      animationTimerRef.current = null;
+      setAnimatedEntryIds(new Set());
+    }, 260);
+  }, [entries]);
+
+  useEffect(
+    () => () => {
+      if (animationTimerRef.current !== null) {
+        window.clearTimeout(animationTimerRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -677,7 +790,7 @@ export function GrokBotTranscript({
     <div
       aria-busy={isAgentComposing || undefined}
       aria-label="Conversation"
-      aria-live="polite"
+      aria-live="off"
       className={cn(
         "baby-grok-bot-transcript flex min-h-0 flex-1 flex-col overflow-y-auto",
         className ?? "px-5 pb-12 pt-2",
@@ -697,12 +810,12 @@ export function GrokBotTranscript({
       role="log"
       tabIndex={0}
     >
-      <div className="flex flex-col gap-1" data-fresh={fresh || undefined}>
+      <div className="flex flex-col gap-1">
         {entries.map((entry, index) => {
           const role = entryRole(entry);
           const previousRole = index > 0 ? entryRole(entries[index - 1]) : null;
           const entryProps = {
-            enterDelayMs: fresh ? Math.min(index * 45, 320) : undefined,
+            animate: animatedEntryIds.has(entry.id),
             entry,
             roleChanged: previousRole !== null && previousRole !== role,
             timestampMs: shouldShowTimestamp(entries, index),

@@ -16,6 +16,10 @@ export { GrokBotIcon } from "./GrokBotIcon";
 export { GrokBotMobileApp } from "./GrokBotMobileApp";
 export { GrokBotScreenOverlay } from "./GrokBotScreenOverlay";
 export { GrokBotTranscript } from "./GrokBotTranscript";
+export {
+  GrokBotMarkdownContent,
+  parseGrokBotMarkdown,
+} from "./MarkdownMessage";
 export { GroupMembersEditor } from "./GroupMembersEditor";
 export { MobileChat } from "./MobileChat";
 export { MobileChatList } from "./MobileChatList";
@@ -57,6 +61,7 @@ export type { GrokBotDesktopPaneProps } from "./GrokBotDesktopPane";
 export type { GrokBotMobileAppProps } from "./GrokBotMobileApp";
 export type { GrokBotScreenOverlayProps } from "./GrokBotScreenOverlay";
 export type { GrokBotTranscriptProps } from "./GrokBotTranscript";
+export type { GrokBotMarkdownContentProps } from "./MarkdownMessage";
 export type { GroupMembersEditorProps } from "./GroupMembersEditor";
 export type { MobileChatProps } from "./MobileChat";
 export type { MobileChatListProps } from "./MobileChatList";

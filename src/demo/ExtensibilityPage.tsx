@@ -5,6 +5,7 @@ import type {
   GrokBotChatHeaderSlotProps,
   GrokBotComposerSlotProps,
   GrokBotConversationRowSlotProps,
+  GrokBotMessageContentSlotProps,
   GrokBotSlots,
   GrokBotTranscriptEntrySlotProps,
 } from "../lib/grok-bot/extensions";
@@ -26,6 +27,7 @@ const SLOT_ORDER: SlotKey[] = [
   "conversationRow",
   "chatHeader",
   "transcriptEntry",
+  "messageContent",
   "composer",
 ];
 
@@ -60,6 +62,16 @@ const SLOT_DEFINITIONS: Record<SlotKey, SlotDefinition> = {
       "Render children. Use entry, index, and isLast for grouping, provenance, virtualization keys, or annotations.",
     props: ["children", "entry", "index", "isLast"],
   },
+  messageContent: {
+    id: "messageContent",
+    label: "Message content",
+    signature: "GrokBotMessageContentSlotProps",
+    capability:
+      "Replace or wrap Markdown independently from message identity, actions, attachments, reactions, and transcript layout.",
+    contract:
+      "Render children for the stock safe Markdown renderer, or return a host renderer such as react-markdown. streaming and role are provided.",
+    props: ["children", "content", "role", "source?", "streaming"],
+  },
   composer: {
     id: "composer",
     label: "Composer",
@@ -88,6 +100,15 @@ const SLOT_CODE: Record<SlotKey, string> = {
     transcriptEntry: CustomTranscriptEntry,
   }}
 />`,
+  messageContent: `<GrokBotApp
+  slots={{
+    messageContent: CustomMessageContent,
+  }}
+/>
+
+function CustomMessageContent({ content }) {
+  return <ReactMarkdown>{content}</ReactMarkdown>
+}`,
   composer: `<GrokBotApp
   slots={{
     composer: CustomComposer,
@@ -323,6 +344,21 @@ function CustomTranscriptEntry({
   );
 }
 
+function CustomMessageContent({
+  children,
+  role,
+  streaming,
+}: GrokBotMessageContentSlotProps) {
+  return (
+    <div className="bb-lab-message-content" data-role={role}>
+      <span className="bb-lab-message-content__signal" aria-hidden="true">
+        {streaming ? "streaming content slot" : `${role} content slot`}
+      </span>
+      {children}
+    </div>
+  );
+}
+
 function CustomComposer({
   agent,
   children,
@@ -359,6 +395,7 @@ export function ExtensibilityPage() {
     conversationRow: true,
     chatHeader: true,
     transcriptEntry: true,
+    messageContent: true,
     composer: true,
   });
   const [selectedSlot, setSelectedSlot] = useState<SlotKey>("conversationRow");
@@ -368,6 +405,7 @@ export function ExtensibilityPage() {
   if (enabled.conversationRow) slots.conversationRow = CustomConversationRow;
   if (enabled.chatHeader) slots.chatHeader = CustomChatHeader;
   if (enabled.transcriptEntry) slots.transcriptEntry = CustomTranscriptEntry;
+  if (enabled.messageContent) slots.messageContent = CustomMessageContent;
   if (enabled.composer) slots.composer = CustomComposer;
 
   const activeCount = SLOT_ORDER.reduce(
@@ -385,6 +423,7 @@ export function ExtensibilityPage() {
       conversationRow: true,
       chatHeader: true,
       transcriptEntry: true,
+      messageContent: true,
       composer: true,
     });
   };
@@ -407,7 +446,7 @@ export function ExtensibilityPage() {
             <i aria-hidden="true" />
             Slot controls
           </span>
-          <strong>{activeCount}/4 live</strong>
+          <strong>{activeCount}/{SLOT_ORDER.length} live</strong>
           <span aria-hidden="true">{dockOpen ? "Down" : "Up"}</span>
         </button>
 
@@ -419,7 +458,7 @@ export function ExtensibilityPage() {
             </div>
             <h1>Replace behavior.<br />Keep the engine.</h1>
             <p>
-              Six public extension layers and four live render slots. Toggle
+              Six public extension layers and five live render slots. Toggle
               overrides without forking conversation state, transport, menus,
               or responsive shells.
             </p>
@@ -427,7 +466,7 @@ export function ExtensibilityPage() {
 
           <div className="bb-ext-controls__summary">
             <span>
-              <strong>{activeCount}</strong> / 4 live slots enabled
+              <strong>{activeCount}</strong> / {SLOT_ORDER.length} live slots enabled
             </span>
             <button onClick={restoreDefaults} type="button">
               Restore all

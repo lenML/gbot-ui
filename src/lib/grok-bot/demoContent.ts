@@ -602,6 +602,51 @@ export function createDemoContent(): GrokBotContent {
       ],
     },
     {
+      match: "markdown",
+      entries: [
+        {
+          kind: "message",
+          thinking: {
+            text: "Planning a compact Markdown sample with block and inline formatting.",
+            durationMs: 700,
+          },
+          pending: {
+            state: "working",
+            label: "Rendering Markdown",
+            minMs: 350,
+            maxMs: 350,
+          },
+          chunkSize: 3,
+          intervalMs: 18,
+          content: [
+            "## Markdown preview",
+            "",
+            "A **safe** renderer with [a link](https://x.ai), `inline code`, ~~strike~~, and @[Sidekick].",
+            "",
+            "### Checklist",
+            "- [x] Headings",
+            "- [x] Lists",
+            "- [ ] External renderer",
+            "",
+            "> A message-content slot can replace or wrap the stock renderer.",
+            "",
+            "| Block | Status |",
+            "| --- | --- |",
+            "| Table | Ready |",
+            "| Code | Ready |",
+            "",
+            "```ts",
+            "const mode = \"streaming\";",
+            "```",
+            "",
+            "$$",
+            "E = mc^2",
+            "$$",
+          ].join("\n"),
+        },
+      ],
+    },
+    {
       entries: [
         {
           kind: "message",

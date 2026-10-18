@@ -8,6 +8,7 @@ import type {
   GrokBotAgent,
   GrokBotContent,
   GrokBotContextMenuState,
+  GrokBotMessageSource,
   GrokBotTranscriptEntry,
 } from "./types";
 
@@ -37,6 +38,14 @@ export interface GrokBotTranscriptEntrySlotProps {
   isLast: boolean;
 }
 
+export interface GrokBotMessageContentSlotProps {
+  children: ReactNode;
+  content: string;
+  role: "user" | "assistant";
+  source?: GrokBotMessageSource;
+  streaming: boolean;
+}
+
 export interface GrokBotComposerSlotProps {
   agent?: GrokBotAgent;
   children: ReactNode;
@@ -47,5 +56,6 @@ export interface GrokBotSlots {
   conversationRow?: ComponentType<GrokBotConversationRowSlotProps>;
   chatHeader?: ComponentType<GrokBotChatHeaderSlotProps>;
   transcriptEntry?: ComponentType<GrokBotTranscriptEntrySlotProps>;
+  messageContent?: ComponentType<GrokBotMessageContentSlotProps>;
   composer?: ComponentType<GrokBotComposerSlotProps>;
 }

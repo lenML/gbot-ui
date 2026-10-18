@@ -1008,6 +1008,24 @@ html.dark .bb-ext-lab,
   min-width: 0;
 }
 
+.bb-lab-message-content {
+  position: relative;
+  min-width: 0;
+  padding-top: 13px;
+}
+
+.bb-lab-message-content__signal {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: color-mix(in srgb, var(--bb-lab-cyan) 78%, var(--cursor-text-tertiary));
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 7px;
+  letter-spacing: 0.04em;
+  line-height: 10px;
+  text-transform: uppercase;
+}
+
 .bb-lab-composer {
   position: relative;
   z-index: 2;
