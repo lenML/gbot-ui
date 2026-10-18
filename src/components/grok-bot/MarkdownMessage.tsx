@@ -481,6 +481,7 @@ function MarkdownBlockView({
                 <span
                   aria-checked={item.checked === true}
                   aria-disabled="true"
+                  aria-label={`${item.checked ? "Completed" : "Incomplete"} task: ${item.text}`}
                   className="baby-grok-bot-md-task"
                   role="checkbox"
                 />
