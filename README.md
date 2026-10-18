@@ -48,13 +48,25 @@ import "./gbot-ui.css";
 export default function App() {
   return (
     <div className="h-dvh">
-      <GrokBotApp activeAgentId="sidekick" className="h-full" />
+      <GrokBotApp activeConversationId="sidekick" className="h-full" />
     </div>
   );
 }
 ```
 
-不传 `content` 时使用 `DEFAULT_DEMO_CONTENT`。
+ 不传 `content` 时使用 `DEFAULT_DEMO_CONTENT`。
+
+Bot 与私有 chat 已拆分。`botId` 保持稳定 profile，conversation `id` 独立拥有 transcript、pin、unread 与删除状态。多个 `content.agents[]` 可复用同一 `botId`。
+
+```tsx
+const actions = useGrokBotActions();
+
+actions.createConversation("sidekick");
+actions.openConversation("chat-123");
+actions.renameConversation("chat-123", "Trip planning");
+
+
+`activeAgentId` 保留兼容；新接入使用 `activeConversationId`。
 
 ## 模块设计
 
@@ -62,7 +74,7 @@ export default function App() {
 | --- | --- |
 | `src/components/grok-bot` | shell、list、chat、transcript、composer、computer、settings、avatar |
 | `src/lib/grok-bot/store.tsx` | provider、state、actions、selector hooks、异步 reply |
-| `src/lib/grok-bot/types.ts` | content、agent、transcript、tool、computer、adapter schema |
+ | `src/lib/grok-bot/types.ts` | content、bot/session、transcript、tool、computer、adapter schema |
 | `src/lib/grok-bot/extensions.ts` | slot 和 surface contract |
 | `src/styles` | token、业务样式、avatar 动画与修复层 |
 | `src/grok-bot.ts` | 复制接入的公共导出入口 |
@@ -165,14 +177,14 @@ export const App = () => (
 
 ```tsx
 import {
-  GrokBotStoreProvider,
-  useActiveAgent,
+   GrokBotStoreProvider,
+   useActiveConversation,
   useActiveTranscript,
   useGrokBotActions,
 } from "./grok-bot";
 
-function MyChat() {
-  const agent = useActiveAgent();
+ function MyChat() {
+   const agent = useActiveConversation();
   const entries = useActiveTranscript();
   const actions = useGrokBotActions();
 
