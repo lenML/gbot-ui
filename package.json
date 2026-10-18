@@ -1,0 +1,70 @@
+{
+  "name": "gbot-ui",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Copy-first React source library for the complete x.ai/bot grok bot surface",
+  "license": "MIT",
+  "homepage": "https://lenml.github.io/gbot-ui/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lenML/gbot-ui.git"
+  },
+  "bugs": {
+    "url": "https://github.com/lenML/gbot-ui/issues"
+  },
+  "keywords": [
+    "react",
+    "grok-bot",
+    "chat-ui",
+    "agent-ui",
+    "copy-first",
+    "tailwindcss"
+  ],
+  "packageManager": "pnpm@10.12.4",
+  "main": "./dist-lib/index.js",
+  "types": "./dist-lib/types/library.d.ts",
+  "files": [
+    "dist-lib",
+    "README.md"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist-lib/types/library.d.ts",
+      "import": "./dist-lib/index.js"
+    },
+    "./style.css": "./dist-lib/index.css",
+    "./fonts/*": "./dist-lib/fonts/*",
+    "./wallpapers/*": "./dist-lib/wallpapers/*",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "pnpm build:lib && pnpm build:demo",
+    "build:demo": "tsc -b && vite build",
+    "build:lib": "vite build --config vite.lib.config.ts && tsc -p tsconfig.lib.json",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "motion": "^12.23.12",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.13",
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.2",
+    "tailwindcss": "^4.1.13",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}
