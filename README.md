@@ -56,7 +56,7 @@ export default function App() {
 
  不传 `content` 时使用 `DEFAULT_DEMO_CONTENT`。
 
-Bot 与私有 chat 已拆分。`botId` 保持稳定 profile，conversation `id` 独立拥有 transcript、pin、unread 与删除状态。多个 `content.agents[]` 可复用同一 `botId`。
+ Bot 与私有 chat 在数据层拆分，默认 UI 保持一个 Bot 一个私聊入口。`botId` 保存稳定 profile；conversation `id` 保存 transcript、pin、unread 与删除状态。
 
 ```tsx
 const actions = useGrokBotActions();
