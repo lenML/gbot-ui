@@ -56,7 +56,8 @@ function readEditorText(root: HTMLElement): string {
 
 function getMentionContext(root: HTMLElement) {
   const selection = window.getSelection();
-  if (!selection || !selection.isCollapsed || selection.rangeCount === 0) return null;
+  if (!selection || !selection.isCollapsed || selection.rangeCount === 0)
+    return null;
   const range = selection.getRangeAt(0);
   const node = range.startContainer;
   if (node.nodeType !== Node.TEXT_NODE || !root.contains(node)) return null;
@@ -96,11 +97,11 @@ export function Composer() {
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [highlightIndex, setHighlightIndex] = useState(0);
   const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
-  const [attachments, setAttachments] = useState<GrokBotMessageAttachment[]>([]);
-  const attachmentsRef = useRef(attachments);
-  const availableAgents = state.agents.filter(
-    (candidate) => !state.hiddenAgentIds.has(candidate.id),
+  const [attachments, setAttachments] = useState<GrokBotMessageAttachment[]>(
+    [],
   );
+  const attachmentsRef = useRef(attachments);
+  const availableAgents = state.botProfiles;
   const normalizedMention = mentionQuery?.trim().toLowerCase() ?? "";
   const mentionAgents =
     mentionQuery === null
@@ -151,7 +152,9 @@ export function Composer() {
     editor.focus();
     const selection = window.getSelection();
     const range =
-      selection && selection.rangeCount > 0 && editor.contains(selection.anchorNode)
+      selection &&
+      selection.rangeCount > 0 &&
+      editor.contains(selection.anchorNode)
         ? selection.getRangeAt(0)
         : document.createRange();
     if (!editor.contains(range.startContainer)) {
@@ -196,7 +199,8 @@ export function Composer() {
     setHighlightIndex(nextIndex);
     window.requestAnimationFrame(() => {
       const list = mentionListRef.current;
-      const option = list?.querySelectorAll<HTMLElement>('[role="option"]')[nextIndex];
+      const option =
+        list?.querySelectorAll<HTMLElement>('[role="option"]')[nextIndex];
       if (!list || !option) return;
       const listRect = list.getBoundingClientRect();
       const optionRect = option.getBoundingClientRect();
@@ -210,7 +214,9 @@ export function Composer() {
 
   const removeAttachment = (attachmentId: string) => {
     setAttachments((current) => {
-      const removed = current.find((attachment) => attachment.id === attachmentId);
+      const removed = current.find(
+        (attachment) => attachment.id === attachmentId,
+      );
       if (removed && isGrokBotObjectUrlPreview(removed) && removed.previewUrl) {
         URL.revokeObjectURL(removed.previewUrl);
       }
@@ -332,7 +338,10 @@ export function Composer() {
         className="baby-grok-bot-composer-fade pointer-events-none absolute inset-x-0 bottom-full h-12"
       />
       {attachments.length > 0 ? (
-        <div aria-label="Pending context" className="baby-grok-bot-attachment-tray mb-2">
+        <div
+          aria-label="Pending context"
+          className="baby-grok-bot-attachment-tray mb-2"
+        >
           {attachments.map((attachment) => (
             <div className="baby-grok-bot-attachment-chip" key={attachment.id}>
               {attachment.kind === "photo" && attachment.previewUrl ? (
@@ -344,7 +353,9 @@ export function Composer() {
               ) : null}
               <span className="baby-grok-bot-attachment-chip__copy">
                 <strong>{getAttachmentLabel(attachment)}</strong>
-                <small>{getAttachmentDetail(attachment) || attachment.kind}</small>
+                <small>
+                  {getAttachmentDetail(attachment) || attachment.kind}
+                </small>
               </span>
               <button
                 aria-label={`Remove ${getAttachmentLabel(attachment)}`}
@@ -425,7 +436,9 @@ export function Composer() {
 
           <div
             aria-autocomplete="list"
-            aria-controls={mentionQuery !== null ? "grok-bot-mention-list" : undefined}
+            aria-controls={
+              mentionQuery !== null ? "grok-bot-mention-list" : undefined
+            }
             aria-expanded={mentionQuery !== null}
             aria-label={resolvePlaceholder(agent)}
             aria-multiline="true"
@@ -453,7 +466,10 @@ export function Composer() {
             title="Agent is working"
             type="button"
           >
-            <span aria-hidden="true" className="size-2.5 rounded-[3px] bg-current" />
+            <span
+              aria-hidden="true"
+              className="size-2.5 rounded-[3px] bg-current"
+            />
           </button>
         ) : (
           <>

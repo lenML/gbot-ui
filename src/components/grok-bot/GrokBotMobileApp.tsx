@@ -1,14 +1,6 @@
-import {
-  useEffect,
-  useState,
-  type CSSProperties,
-  type FormEvent,
-} from "react";
+import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import { BabyGrokBot } from "../BabyGrokBot";
-import {
-  useGrokBotActions,
-  useGrokBotStore,
-} from "../../lib/grok-bot/store";
+import { useGrokBotActions, useGrokBotStore } from "../../lib/grok-bot/store";
 import { useResolvedBabyGrokBotTheme } from "../../lib/theme";
 import { ContextMenu } from "./ContextMenu";
 import { CreateConversationSheet } from "./CreateConversationSheet";
@@ -98,8 +90,17 @@ export function GrokBotMobileApp({
     visibleAgents.find((agent) => agent.id === state.activeAgentId) ??
     visibleAgents[0];
   const activeEntries = activeAgent
-    ? state.transcripts[activeAgent.id] ?? []
+    ? (state.transcripts[activeAgent.id] ?? [])
     : [];
+  const composeMatches = state.botProfiles.filter((agent) => {
+    const query = state.composeQuery.trim().toLowerCase();
+    return (
+      !query ||
+      [agent.name, agent.title, agent.description]
+        .filter(Boolean)
+        .some((value) => value!.toLowerCase().includes(query))
+    );
+  });
 
   const openAgent = (agentId: string) => {
     setIsCreateMenuOpen(false);
@@ -121,7 +122,13 @@ export function GrokBotMobileApp({
   const openNewChat = () => {
     setIsCreateMenuOpen(false);
     setScreen("list");
-    actions.openCompose();
+    actions.openCompose("chat");
+  };
+
+  const openNewBot = () => {
+    setIsCreateMenuOpen(false);
+    setScreen("list");
+    actions.openCompose("bot");
   };
 
   const openNewGroup = () => {
@@ -137,9 +144,16 @@ export function GrokBotMobileApp({
 
   const submitCompose = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const name = state.composeQuery.trim();
-    if (!name) return;
-    actions.createAgent(name);
+    if (state.composeMode === "bot") {
+      const name = state.composeQuery.trim();
+      if (!name) return;
+      actions.createAgent(name);
+      setScreen("chat");
+      return;
+    }
+    const bot = composeMatches[0];
+    if (!bot) return;
+    actions.createConversation(bot.botId ?? bot.id);
     setScreen("chat");
   };
 
@@ -193,7 +207,7 @@ export function GrokBotMobileApp({
               <div className="baby-grok-bot-mobile-chat-screen h-full min-h-0">
                 <MobileChat
                   agent={activeAgent}
-                  agents={visibleAgents}
+                  agents={state.botProfiles}
                   entries={activeEntries}
                   onBack={backToList}
                 />
@@ -215,14 +229,18 @@ export function GrokBotMobileApp({
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-[18px] leading-6 font-medium tracking-[-0.25px]">
-                    New agent
+                    {state.composeMode === "bot"
+                      ? "New bot"
+                      : "New private chat"}
                   </h2>
                   <p className="mt-1 text-[13px] leading-[18px] text-[color:var(--cursor-text-tertiary)]">
-                    Name your agent to start a chat.
+                    {state.composeMode === "bot"
+                      ? "Create a reusable bot profile and its first session."
+                      : "Choose a bot. Every choice opens an independent session."}
                   </p>
                 </div>
                 <button
-                  aria-label="Close new agent"
+                  aria-label="Close new conversation"
                   className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[var(--grok-bot-bg-tertiary)] text-[18px] leading-none text-[color:var(--cursor-text-secondary)]"
                   onClick={() => actions.closeCompose()}
                   type="button"
@@ -234,23 +252,69 @@ export function GrokBotMobileApp({
               <input
                 autoFocus
                 className="mt-5 h-11 w-full rounded-2xl border-[0.5px] border-[var(--grok-bot-border-default)] bg-[var(--cursor-bg-elevated)] px-4 text-[15px] outline-none placeholder:text-[color:var(--cursor-text-tertiary)] focus:border-[color:color-mix(in_srgb,var(--grok-bot-current-agent-accent)_55%,transparent)]"
-                onChange={(event) => actions.setComposeQuery(event.target.value)}
-                placeholder="Agent name"
+                onChange={(event) =>
+                  actions.setComposeQuery(event.target.value)
+                }
+                placeholder={
+                  state.composeMode === "bot" ? "Bot name" : "Search bots"
+                }
                 value={state.composeQuery}
               />
 
+              {state.composeMode === "chat" ? (
+                <div className="mt-3 min-h-0 flex-1 space-y-1 overflow-y-auto pb-4">
+                  {composeMatches.map((bot) => (
+                    <button
+                      className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left hover:bg-[var(--grok-bot-bg-hover)]"
+                      key={bot.id}
+                      onClick={() => {
+                        actions.createConversation(bot.botId ?? bot.id);
+                        setScreen("chat");
+                      }}
+                      type="button"
+                    >
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--grok-bot-current-agent-tint)] text-[12px] font-medium text-[var(--grok-bot-current-agent-accent)]">
+                        {bot.name.slice(0, 1)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[14px] leading-5">
+                          {bot.name}
+                        </span>
+                        <span className="block truncate text-[12px] leading-4 text-[color:var(--cursor-text-tertiary)]">
+                          {bot.title ?? "Start a new private session"}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
               <button
-                className="mt-3 h-11 rounded-full bg-[var(--grok-bot-fill-emphasis)] text-[14px] font-medium text-[var(--grok-bot-bubble-user-ink)] disabled:opacity-40"
-                disabled={!state.composeQuery.trim()}
+                className="mt-3 h-11 shrink-0 rounded-full bg-[var(--grok-bot-fill-emphasis)] text-[14px] font-medium text-[var(--grok-bot-bubble-user-ink)] disabled:opacity-40"
+                disabled={
+                  state.composeMode === "bot"
+                    ? !state.composeQuery.trim()
+                    : composeMatches.length === 0
+                }
                 type="submit"
               >
-                Create agent
+                {state.composeMode === "bot" ? "Create bot" : "Start chat"}
               </button>
+              {state.composeMode === "chat" ? (
+                <button
+                  className="mt-2 h-10 shrink-0 text-[13px] font-medium text-[color:var(--cursor-text-secondary)]"
+                  onClick={() => actions.setComposeMode("bot")}
+                  type="button"
+                >
+                  Create a new bot instead
+                </button>
+              ) : null}
             </form>
           ) : null}
 
           <CreateConversationSheet
             onCreateChat={openNewChat}
+            onCreateBot={openNewBot}
             onCreateGroup={openNewGroup}
             onClose={() => setIsCreateMenuOpen(false)}
             open={isCreateMenuOpen && screen === "list"}

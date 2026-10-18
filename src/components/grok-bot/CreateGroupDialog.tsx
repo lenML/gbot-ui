@@ -30,9 +30,7 @@ export function CreateGroupDialog({
 
   if (!state.isCreateGroupOpen) return null;
 
-  const candidates = state.agents.filter(
-    (agent) => !agent.isGroup && !state.hiddenAgentIds.has(agent.id),
-  );
+  const candidates = state.botProfiles;
   const selectedCount = state.groupDraftMemberIds.length;
   const atLimit = selectedCount >= MAX_GROUP_MEMBERS;
   const canCreate = selectedCount > 0;
@@ -91,7 +89,9 @@ export function CreateGroupDialog({
             <input
               aria-label="Group name"
               maxLength={80}
-              onChange={(event) => actions.setGroupDraftName(event.target.value)}
+              onChange={(event) =>
+                actions.setGroupDraftName(event.target.value)
+              }
               placeholder="e.g. Renewal room"
               ref={nameRef}
               value={state.groupDraftName}
@@ -104,7 +104,10 @@ export function CreateGroupDialog({
                 <strong>Members</strong>
                 <small>Bots become equal participants in the group chat.</small>
               </span>
-              <span className="baby-grok-bot-group-picker__count" data-limit={atLimit || undefined}>
+              <span
+                className="baby-grok-bot-group-picker__count"
+                data-limit={atLimit || undefined}
+              >
                 {selectedCount}/{MAX_GROUP_MEMBERS}
               </span>
             </div>
@@ -117,7 +120,9 @@ export function CreateGroupDialog({
             >
               {candidates.length > 0 ? (
                 candidates.map((candidate) => {
-                  const selected = state.groupDraftMemberIds.includes(candidate.id);
+                  const selected = state.groupDraftMemberIds.includes(
+                    candidate.id,
+                  );
                   const disabled = !selected && atLimit;
                   return (
                     <button
@@ -126,7 +131,9 @@ export function CreateGroupDialog({
                       data-selected={selected || undefined}
                       disabled={disabled}
                       key={candidate.id}
-                      onClick={() => actions.toggleGroupDraftMember(candidate.id)}
+                      onClick={() =>
+                        actions.toggleGroupDraftMember(candidate.id)
+                      }
                       role="option"
                       type="button"
                     >
@@ -139,14 +146,21 @@ export function CreateGroupDialog({
                           {candidate.title ?? candidate.description ?? "Agent"}
                         </span>
                       </span>
-                      <span className="baby-grok-bot-group-candidate__check" aria-hidden="true">
-                        {selected ? <GrokBotIcon name="check" size={13} /> : null}
+                      <span
+                        className="baby-grok-bot-group-candidate__check"
+                        aria-hidden="true"
+                      >
+                        {selected ? (
+                          <GrokBotIcon name="check" size={13} />
+                        ) : null}
                       </span>
                     </button>
                   );
                 })
               ) : (
-                <p className="baby-grok-bot-dialog__empty">Create a bot before creating a group.</p>
+                <p className="baby-grok-bot-dialog__empty">
+                  Create a bot before creating a group.
+                </p>
               )}
             </div>
           </div>

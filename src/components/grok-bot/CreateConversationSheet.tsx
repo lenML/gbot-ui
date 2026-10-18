@@ -7,6 +7,7 @@ export interface CreateConversationSheetProps {
   open: boolean;
   onClose: () => void;
   onCreateChat: () => void;
+  onCreateBot: () => void;
   onCreateGroup: () => void;
   className?: string;
 }
@@ -46,6 +47,28 @@ function GroupIcon() {
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+    </svg>
+  );
+}
+
+function BotIcon() {
+  return (
+    <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+      <rect
+        height="12"
+        rx="4"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        width="13"
+        x="5.5"
+        y="5.5"
+      />
+      <path
+        d="M9 10h.01M15 10h.01M9.5 14h5M12 3v2.5"
+        stroke="currentColor"
+        strokeLinecap="round"
         strokeWidth="1.7"
       />
     </svg>
@@ -106,6 +129,7 @@ export function CreateConversationSheet({
   open,
   onClose,
   onCreateChat,
+  onCreateBot,
   onCreateGroup,
   className,
 }: CreateConversationSheetProps) {
@@ -151,10 +175,7 @@ export function CreateConversationSheet({
         aria-describedby={descriptionId}
         aria-labelledby={titleId}
         aria-modal="true"
-        className={cn(
-          "baby-grok-bot-create-conversation-sheet",
-          className,
-        )}
+        className={cn("baby-grok-bot-create-conversation-sheet", className)}
         role="dialog"
       >
         <span
@@ -164,15 +185,22 @@ export function CreateConversationSheet({
         <header className="baby-grok-bot-create-conversation-sheet__header">
           <h2 id={titleId}>Create conversation</h2>
           <p id={descriptionId}>
-            Start a private chat or bring several bots into a group.
+            Start a private session, create a bot, or bring several bots
+            together.
           </p>
         </header>
         <div className="baby-grok-bot-create-conversation-sheet__options">
           <ConversationOption
-            description="Start a one-to-one conversation with a bot."
+            description="Choose a bot and open an independent private session."
             icon={<ChatIcon />}
             onClick={() => runAction(onCreateChat)}
             title="New chat"
+          />
+          <ConversationOption
+            description="Create a reusable profile with tools and a computer."
+            icon={<BotIcon />}
+            onClick={() => runAction(onCreateBot)}
+            title="New bot"
           />
           <ConversationOption
             description="Invite up to six bots into one shared conversation."

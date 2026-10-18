@@ -14,7 +14,8 @@ import "../../styles/iteration-mobile.css";
 const DEMO_PARTIAL_DELAY_MS = 520;
 const DEMO_FINAL_DELAY_MS = 1_760;
 const DEMO_PARTIAL = "Schedule a follow-up for tomorrow morning";
-const DEMO_FINAL = "Schedule a follow-up for tomorrow morning and include the launch notes.";
+const DEMO_FINAL =
+  "Schedule a follow-up for tomorrow morning and include the launch notes.";
 const DEFAULT_DEMO_ASR_CAPABILITY: GrokBotAsrCapability = {
   supported: true,
   partialResults: true,
@@ -92,9 +93,12 @@ export function AsrButton({
   }, [onCancel, onTranscript]);
 
   const clearTimers = () => {
-    if (partialTimerRef.current !== null) window.clearTimeout(partialTimerRef.current);
-    if (finalTimerRef.current !== null) window.clearTimeout(finalTimerRef.current);
-    if (processingTimerRef.current !== null) window.clearTimeout(processingTimerRef.current);
+    if (partialTimerRef.current !== null)
+      window.clearTimeout(partialTimerRef.current);
+    if (finalTimerRef.current !== null)
+      window.clearTimeout(finalTimerRef.current);
+    if (processingTimerRef.current !== null)
+      window.clearTimeout(processingTimerRef.current);
     partialTimerRef.current = null;
     finalTimerRef.current = null;
     processingTimerRef.current = null;
@@ -123,7 +127,10 @@ export function AsrButton({
     }
 
     try {
-      Promise.resolve(adapter.getCapability()).then(applyCapability, failCapability);
+      Promise.resolve(adapter.getCapability()).then(
+        applyCapability,
+        failCapability,
+      );
     } catch (reason) {
       failCapability(reason);
     }
@@ -225,7 +232,9 @@ export function AsrButton({
     if (adapter) {
       try {
         const startResult = adapter.start({
-          agentId: state.activeAgentId,
+          agentId:
+            state.agents.find((agent) => agent.id === state.activeAgentId)
+              ?.botId ?? state.activeAgentId,
           onPhase: (phase) => {
             if (generation !== generationRef.current) return;
             adapterPhaseSeenRef.current = true;
@@ -282,7 +291,9 @@ export function AsrButton({
       fail(new Error("Transcription timed out. Try again."), generation);
     }, 12_000);
     try {
-      Promise.resolve(adapter.stop()).catch((reason) => fail(reason, generation));
+      Promise.resolve(adapter.stop()).catch((reason) =>
+        fail(reason, generation),
+      );
     } catch (reason) {
       fail(reason, generation);
     }
@@ -304,7 +315,8 @@ export function AsrButton({
     if (!isActivePhase(state.asr.phase)) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (!rootRef.current || rootRef.current.getClientRects().length === 0) return;
+      if (!rootRef.current || rootRef.current.getClientRects().length === 0)
+        return;
       event.preventDefault();
       event.stopPropagation();
       cancel();
@@ -360,9 +372,15 @@ export function AsrButton({
       ref={rootRef}
     >
       {phase !== "idle" ? (
-        <div aria-live="polite" className="baby-grok-bot-asr__status" role="status">
+        <div
+          aria-live="polite"
+          className="baby-grok-bot-asr__status"
+          role="status"
+        >
           {phase === "error" ? (
-            <span>{state.asr.error || "Voice transcription failed. Try again."}</span>
+            <span>
+              {state.asr.error || "Voice transcription failed. Try again."}
+            </span>
           ) : phase === "unsupported" ? (
             <span>{unsupportedReason(state.asr.capability)}</span>
           ) : phase === "requesting-permission" ? (
@@ -377,7 +395,9 @@ export function AsrButton({
             </>
           ) : (
             <>
-              <span className="baby-grok-bot-asr__timer">{formatElapsed(elapsedMs)}</span>
+              <span className="baby-grok-bot-asr__timer">
+                {formatElapsed(elapsedMs)}
+              </span>
               <span aria-hidden="true" className="baby-grok-bot-asr__wave">
                 {WAVE_BARS.map((height, index) => (
                   <span

@@ -1,12 +1,5 @@
-import {
-  createPortal,
-} from "react-dom";
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { createPortal } from "react-dom";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type {
   KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
@@ -96,7 +89,9 @@ export function entryMenuText(entry: GrokBotTranscriptEntry): string {
     case "computer-use":
       return [entry.instruction, entry.ask].filter(Boolean).join("\n");
     case "pull-request":
-      return [entry.title, entry.repository, entry.url].filter(Boolean).join("\n");
+      return [entry.title, entry.repository, entry.url]
+        .filter(Boolean)
+        .join("\n");
     case "outbound-message":
       return [entry.subject, entry.body].filter(Boolean).join("\n\n");
   }
@@ -135,7 +130,9 @@ function ContextMenuItem({
 }) {
   return (
     <>
-      {action.separatorBefore ? <div className="baby-grok-bot-context-menu__separator" /> : null}
+      {action.separatorBefore ? (
+        <div className="baby-grok-bot-context-menu__separator" />
+      ) : null}
       <button
         className="baby-grok-bot-context-menu__item"
         data-danger={action.danger || undefined}
@@ -145,9 +142,13 @@ function ContextMenuItem({
         tabIndex={-1}
         type="button"
       >
-        <span className="min-w-0 flex-1 truncate text-left">{action.label}</span>
+        <span className="min-w-0 flex-1 truncate text-left">
+          {action.label}
+        </span>
         {action.shortcut ? (
-          <span className="baby-grok-bot-context-menu__shortcut">{action.shortcut}</span>
+          <span className="baby-grok-bot-context-menu__shortcut">
+            {action.shortcut}
+          </span>
         ) : null}
       </button>
     </>
@@ -192,11 +193,14 @@ export function ContextMenu({ className }: ContextMenuProps) {
   const target = contextMenu?.target ?? null;
   const agent =
     target?.kind === "agent" || target?.kind === "message"
-      ? state.agents.find((candidate) => candidate.id === target.agentId) ?? null
+      ? (state.agents.find((candidate) => candidate.id === target.agentId) ??
+        null)
       : null;
   const messageEntry =
     target?.kind === "message"
-      ? state.transcripts[target.agentId]?.find((entry) => entry.id === target.entryId) ?? null
+      ? (state.transcripts[target.agentId]?.find(
+          (entry) => entry.id === target.entryId,
+        ) ?? null)
       : null;
 
   const close = (restoreFocus = true) => {
@@ -204,7 +208,8 @@ export function ContextMenu({ className }: ContextMenuProps) {
     actions.closeContextMenu();
     if (restoreFocus) {
       queueMicrotask(() => {
-        if (returnTarget?.isConnected) returnTarget.focus({ preventScroll: true });
+        if (returnTarget?.isConnected)
+          returnTarget.focus({ preventScroll: true });
       });
     }
   };
@@ -272,9 +277,18 @@ export function ContextMenu({ className }: ContextMenuProps) {
         shortcut: "Enter",
         onSelect: () => {
           actions.openAgent(agent.id);
-          actions.openSettings(agent.id);
+          actions.openSettings(
+            agent.isGroup ? agent.id : (agent.botId ?? agent.id),
+          );
         },
       });
+      if (!agent.isGroup) {
+        menuActions.push({
+          id: "new-chat",
+          label: "New chat with this bot",
+          onSelect: () => actions.createConversation(agent.botId ?? agent.id),
+        });
+      }
       menuActions.push({
         id: "copy-id",
         label: "Copy conversation ID",
@@ -302,13 +316,13 @@ export function ContextMenu({ className }: ContextMenuProps) {
       });
       menuActions.push({
         id: "hide",
-        label: "Hide",
+        label: agent.isGroup ? "Hide group" : "Hide chat",
         separatorBefore: true,
         onSelect: () => actions.hideAgent(agent.id),
       });
       menuActions.push({
         id: "delete",
-        label: "Delete",
+        label: agent.isGroup ? "Delete group" : "Delete chat",
         danger: true,
         onSelect: () => actions.deleteAgent(agent.id),
       });
@@ -324,7 +338,10 @@ export function ContextMenu({ className }: ContextMenuProps) {
     menuActions.push({
       id: "reply",
       label: "Reply",
-      onSelect: () => actions.setScriptedComposerText(quoteForReply(entryMenuText(messageEntry))),
+      onSelect: () =>
+        actions.setScriptedComposerText(
+          quoteForReply(entryMenuText(messageEntry)),
+        ),
     });
 
     if (messageEntry.kind === "computer-use") {
@@ -334,7 +351,10 @@ export function ContextMenu({ className }: ContextMenuProps) {
         separatorBefore: true,
         onSelect: () => actions.openComputerScreen(messageEntry.id),
       });
-      if (messageEntry.status === "action-needed" || messageEntry.status === "working") {
+      if (
+        messageEntry.status === "action-needed" ||
+        messageEntry.status === "working"
+      ) {
         menuActions.push({
           id: "take-over",
           label: "Take over computer",
@@ -342,7 +362,10 @@ export function ContextMenu({ className }: ContextMenuProps) {
         });
       }
     } else if (messageEntry.kind === "outbound-message") {
-      if (messageEntry.status === "ready" || messageEntry.status === "sending") {
+      if (
+        messageEntry.status === "ready" ||
+        messageEntry.status === "sending"
+      ) {
         menuActions.push({
           id: "send-message",
           label: "Send now",
@@ -366,7 +389,9 @@ export function ContextMenu({ className }: ContextMenuProps) {
     }
 
     if (messageEntry.source?.kind === "agent") {
-      const sourceAgent = state.agents.find((candidate) => candidate.id === messageEntry.source?.id);
+      const sourceAgent = state.botProfiles.find(
+        (candidate) => candidate.id === messageEntry.source?.id,
+      );
       if (sourceAgent) {
         menuActions.push({
           id: "source-settings",
@@ -380,11 +405,16 @@ export function ContextMenu({ className }: ContextMenuProps) {
 
   const handleMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     const items = Array.from(
-      menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)') ?? [],
+      menuRef.current?.querySelectorAll<HTMLButtonElement>(
+        '[role="menuitem"]:not(:disabled)',
+      ) ?? [],
     );
     if (items.length === 0) return;
 
-    const currentIndex = Math.max(0, items.indexOf(document.activeElement as HTMLButtonElement));
+    const currentIndex = Math.max(
+      0,
+      items.indexOf(document.activeElement as HTMLButtonElement),
+    );
     let nextIndex: number | null = null;
     switch (event.key) {
       case "ArrowDown":
@@ -435,7 +465,9 @@ export function ContextMenu({ className }: ContextMenuProps) {
           />
         ))
       ) : (
-        <div className="baby-grok-bot-context-menu__empty">No actions available</div>
+        <div className="baby-grok-bot-context-menu__empty">
+          No actions available
+        </div>
       )}
     </div>
   );

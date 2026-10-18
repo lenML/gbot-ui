@@ -33,6 +33,7 @@ import type {
   GrokBotAsrCapability,
   GrokBotAsrPhase,
   GrokBotContent,
+  GrokBotComposeMode,
   GrokBotContextMenuState,
   GrokBotGroupMember,
   GrokBotIntegrations,
@@ -60,9 +61,7 @@ let liveCounter = 0;
 
 function isBabyGrokBotTheme(value: unknown): value is BabyGrokBotTheme {
   return (
-    value === "auto" ||
-    value === "cursor-light" ||
-    value === "cursor-dark"
+    value === "auto" || value === "cursor-light" || value === "cursor-dark"
   );
 }
 
@@ -141,14 +140,41 @@ function groupMembersFromIds(
 function agentsFromContent(content: GrokBotContent): GrokBotAgent[] {
   return content.agents.map(({ agent }) => ({
     ...agent,
+    botId: agent.isGroup ? agent.botId : (agent.botId ?? agent.id),
     settings:
-      agent.settings ?? content.settings.map((setting: AgentSetting) => ({ ...setting })),
+      agent.settings ??
+      content.settings.map((setting: AgentSetting) => ({ ...setting })),
     tools:
       agent.tools ??
       content.tools?.map((tool: AgentToolConfig) => ({ ...tool })) ??
       [],
     computerId: agent.computerId ?? content.computers?.[0]?.id ?? null,
   }));
+}
+
+function botProfilesFromConversations(agents: GrokBotAgent[]): GrokBotAgent[] {
+  const profiles = new Map<string, GrokBotAgent>();
+  for (const agent of agents) {
+    if (agent.isGroup) continue;
+    const botId = agent.botId ?? agent.id;
+    if (profiles.has(botId)) continue;
+    profiles.set(botId, {
+      ...agent,
+      id: botId,
+      botId,
+      conversationTitle: undefined,
+      lastEntry: null,
+      lastActivityAt: 0,
+      hasUnread: false,
+      unreadCount: 0,
+      isPinned: false,
+      isRunning: false,
+      isComposingMessage: false,
+      composingBeat: undefined,
+      status: null,
+    });
+  }
+  return [...profiles.values()];
 }
 
 function findReplyScript(
@@ -196,15 +222,18 @@ function createGrokBotStore(
   requestedTheme?: BabyGrokBotTheme,
 ): InternalGrokBotStore {
   const agents = agentsFromContent(content);
+  const botProfiles = botProfilesFromConversations(agents);
   const activeAgentId =
-    requestedActiveAgentId && agents.some((agent) => agent.id === requestedActiveAgentId)
+    requestedActiveAgentId &&
+    agents.some((agent) => agent.id === requestedActiveAgentId)
       ? requestedActiveAgentId
-      : agents[0]?.id ?? "";
+      : (agents[0]?.id ?? "");
 
   let state: GrokBotState = {
     content,
     theme: requestedTheme ?? readStoredTheme(),
     agents,
+    botProfiles,
     transcripts: Object.fromEntries(
       content.agents.map(({ agent, transcript }) => [agent.id, transcript]),
     ),
@@ -217,16 +246,17 @@ function createGrokBotStore(
     desktopPaneWidth: DESKTOP_PANE_DEFAULT_WIDTH,
     shellWidth: 0,
     isComposingNew: false,
-     composeQuery: "",
-     screenOverlay: null,
-     isSettingsOpen: false,
-     settingsAgentId: null,
-     isCreateGroupOpen: false,
-     groupDraftName: "",
-     groupDraftMemberIds: [],
-     contextMenu: null,
-     asr: createDefaultAsrState(),
-     draftAgentId: null,
+    composeMode: "chat",
+    composeQuery: "",
+    screenOverlay: null,
+    isSettingsOpen: false,
+    settingsAgentId: null,
+    isCreateGroupOpen: false,
+    groupDraftName: "",
+    groupDraftMemberIds: [],
+    contextMenu: null,
+    asr: createDefaultAsrState(),
+    draftAgentId: null,
     isPanelResizing: false,
     scriptedComposerText: null,
     scriptedScreen: null,
@@ -261,11 +291,14 @@ function createGrokBotStore(
       timer = undefined;
     };
 
-    timer = setTimeout(() => {
-      if (timer != null) timers.delete(timer);
-      timer = undefined;
-      callback();
-    }, Math.max(0, delayMs));
+    timer = setTimeout(
+      () => {
+        if (timer != null) timers.delete(timer);
+        timer = undefined;
+        callback();
+      },
+      Math.max(0, delayMs),
+    );
     timers.set(timer, cancel);
     return cancel;
   }
@@ -304,6 +337,53 @@ function createGrokBotStore(
         agent.id === agentId ? { ...agent, ...patch } : agent,
       ),
     });
+  }
+
+  function resolveBotProfileId(agentId: string): string | null {
+    const conversation = state.agents.find((agent) => agent.id === agentId);
+    if (conversation && !conversation.isGroup) {
+      return conversation.botId ?? conversation.id;
+    }
+    return state.botProfiles.some((profile) => profile.id === agentId)
+      ? agentId
+      : null;
+  }
+
+  function updateBot(
+    agentOrBotId: string,
+    patch: Partial<GrokBotAgent>,
+  ): boolean {
+    const botId = resolveBotProfileId(agentOrBotId);
+    if (!botId || !state.botProfiles.some((profile) => profile.id === botId)) {
+      return false;
+    }
+    commit({
+      botProfiles: state.botProfiles.map((profile) =>
+        profile.id === botId ? { ...profile, ...patch } : profile,
+      ),
+      agents: state.agents.map((agent) =>
+        !agent.isGroup && (agent.botId ?? agent.id) === botId
+          ? { ...agent, ...patch, id: agent.id, botId }
+          : agent.isGroup &&
+              agent.members?.some((member) => member.id === botId)
+            ? {
+                ...agent,
+                members: agent.members.map((member) =>
+                  member.id === botId
+                    ? {
+                        ...member,
+                        name: patch.name ?? member.name,
+                        title: patch.title ?? member.title,
+                        hue: patch.hue ?? member.hue,
+                        avatarModel: patch.avatarModel ?? member.avatarModel,
+                      }
+                    : member,
+                ),
+              }
+            : agent,
+      ),
+    });
+    return true;
   }
 
   function clearUnread(agentId: string): void {
@@ -468,7 +548,10 @@ function createGrokBotStore(
         if (agentControllers?.size === 0) {
           agentScriptControllers.delete(agentId);
         }
-        const remaining = Math.max(0, (activeScriptCounts.get(agentId) ?? 1) - 1);
+        const remaining = Math.max(
+          0,
+          (activeScriptCounts.get(agentId) ?? 1) - 1,
+        );
         if (remaining === 0) activeScriptCounts.delete(agentId);
         else activeScriptCounts.set(agentId, remaining);
         if (generation === scriptEpoch && !controller.signal.aborted) {
@@ -521,7 +604,9 @@ function createGrokBotStore(
             message: { type: "text", content: step.content },
           });
 
-          const currentAgent = state.agents.find((agent) => agent.id === agentId);
+          const currentAgent = state.agents.find(
+            (agent) => agent.id === agentId,
+          );
           const isUnread = state.activeAgentId !== agentId;
           updateAgent(agentId, {
             isComposingMessage: false,
@@ -573,7 +658,10 @@ function createGrokBotStore(
           if (waitResult === "abort" || cancelled()) return;
 
           let found = findEntry(entryId);
-          if (found?.entry.kind === "computer-use" && found.entry.status === "handed-over") {
+          if (
+            found?.entry.kind === "computer-use" &&
+            found.entry.status === "handed-over"
+          ) {
             waitResult = await waitForEntry(entryId, undefined, signal);
             if (waitResult === "abort" || cancelled()) return;
             found = findEntry(entryId);
@@ -623,7 +711,9 @@ function createGrokBotStore(
           const completed = await sleep(step.createMs ?? 2_400, signal);
           if (!completed || cancelled()) return;
           updateEntry(agentId, entryId, (entry) =>
-            entry.kind === "pull-request" ? { ...entry, status: "done" } : entry,
+            entry.kind === "pull-request"
+              ? { ...entry, status: "done" }
+              : entry,
           );
           break;
         }
@@ -659,7 +749,10 @@ function createGrokBotStore(
           if (waitResult === "abort" || cancelled()) return;
 
           const found = findEntry(entryId);
-          if (found?.entry.kind === "outbound-message" && found.entry.status === "ready") {
+          if (
+            found?.entry.kind === "outbound-message" &&
+            found.entry.status === "ready"
+          ) {
             sendOutboundMessage(entryId);
             const sent = await sleep(1_600, signal);
             if (!sent || cancelled()) return;
@@ -684,14 +777,17 @@ function createGrokBotStore(
           });
 
           if (step.event.type === "created-routine") {
-            const agent = state.agents.find((candidate) => candidate.id === agentId);
+            const agent = state.agents.find(
+              (candidate) => candidate.id === agentId,
+            );
             updateAgent(agentId, {
               automations: [
                 ...(agent?.automations ?? []),
                 {
                   id: createLiveId(),
                   name: step.event.name,
-                  triggerDescription: step.event.triggerDescription ?? "Scheduled",
+                  triggerDescription:
+                    step.event.triggerDescription ?? "Scheduled",
                 },
               ],
             });
@@ -700,7 +796,7 @@ function createGrokBotStore(
         }
 
         case "rename": {
-          updateAgent(agentId, { name: step.name });
+          updateAgentProfile(agentId, { name: step.name });
           appendEntry(agentId, {
             kind: "system",
             id: createLiveId(),
@@ -717,7 +813,10 @@ function createGrokBotStore(
           updateEntry(agentId, latest.id, (entry) =>
             entry.reactions?.includes(step.emoji)
               ? entry
-              : { ...entry, reactions: [...(entry.reactions ?? []), step.emoji] },
+              : {
+                  ...entry,
+                  reactions: [...(entry.reactions ?? []), step.emoji],
+                },
           );
           break;
         }
@@ -741,13 +840,25 @@ function createGrokBotStore(
     });
   }
 
+  function openConversation(conversationId: string): void {
+    openAgent(conversationId);
+  }
+
   function openAgent(agentId: string): void {
     if (!state.agents.some((agent) => agent.id === agentId)) return;
+    const selectedConversation = state.agents.find(
+      (agent) => agent.id === agentId,
+    );
+    const settingsTargetId = selectedConversation?.isGroup
+      ? selectedConversation.id
+      : (selectedConversation?.botId ?? agentId);
     if (agentId === state.activeAgentId) {
       commit({
         isComposingNew: false,
         composeQuery: "",
-        settingsAgentId: state.isSettingsOpen ? agentId : state.settingsAgentId,
+        settingsAgentId: state.isSettingsOpen
+          ? settingsTargetId
+          : state.settingsAgentId,
       });
       clearUnread(agentId);
       return;
@@ -757,7 +868,9 @@ function createGrokBotStore(
     const transcripts =
       draftAgentId && draftAgentId !== agentId
         ? Object.fromEntries(
-            Object.entries(state.transcripts).filter(([id]) => id !== draftAgentId),
+            Object.entries(state.transcripts).filter(
+              ([id]) => id !== draftAgentId,
+            ),
           )
         : state.transcripts;
     const nextAgents =
@@ -773,7 +886,9 @@ function createGrokBotStore(
         draftAgentId && draftAgentId !== agentId ? null : state.draftAgentId,
       isComposingNew: false,
       composeQuery: "",
-      settingsAgentId: state.isSettingsOpen ? agentId : state.settingsAgentId,
+      settingsAgentId: state.isSettingsOpen
+        ? settingsTargetId
+        : state.settingsAgentId,
     });
     clearUnread(agentId);
   }
@@ -809,10 +924,23 @@ function createGrokBotStore(
       lastEntry: {
         kind: "text",
         text: summarize(
-          message || attachments.map((attachment) => attachment.kind).join(", "),
+          message ||
+            attachments.map((attachment) => attachment.kind).join(", "),
         ),
       },
       lastActivityAt: Date.now(),
+      ...((() => {
+        const title = state.agents.find(
+          (agent) => agent.id === agentId && !agent.isGroup,
+        )?.conversationTitle;
+        return title == null || title === "New chat";
+      })()
+        ? {
+            conversationTitle: summarize(
+              message || attachments[0]?.kind || "New chat",
+            ),
+          }
+        : {}),
     });
 
     const matchText =
@@ -866,7 +994,9 @@ function createGrokBotStore(
     const found = findEntry(entryId);
     if (!found || found.entry.kind !== "multiple-choice") return;
     updateEntry(found.agentId, entryId, (entry) =>
-      entry.kind === "multiple-choice" ? { ...entry, isDismissed: true } : entry,
+      entry.kind === "multiple-choice"
+        ? { ...entry, isDismissed: true }
+        : entry,
     );
   }
 
@@ -938,10 +1068,11 @@ function createGrokBotStore(
     setOutboundStatus(entryId, "discarded");
   }
 
-  function openCompose(): void {
+  function openCompose(mode: GrokBotComposeMode = "chat"): void {
     setDesktopPaneOpen(false);
     commit({
       isComposingNew: true,
+      composeMode: mode,
       composeQuery: "",
       isCreateGroupOpen: false,
       groupDraftName: "",
@@ -953,56 +1084,67 @@ function createGrokBotStore(
     commit({ isComposingNew: false, composeQuery: "" });
   }
 
+  function setComposeMode(mode: GrokBotComposeMode): void {
+    commit({ composeMode: mode });
+  }
+
   function setComposeQuery(query: string): void {
     commit({ composeQuery: query });
+  }
+
+  function createConversation(botId: string): string | null {
+    const profile =
+      state.botProfiles.find((candidate) => candidate.id === botId) ??
+      state.agents.find(
+        (candidate) =>
+          !candidate.isGroup && (candidate.botId ?? candidate.id) === botId,
+      );
+    if (!profile) return null;
+
+    const conversationId = `chat-${createLiveId()}`;
+    const normalizedBotId = profile.botId ?? profile.id;
+    const conversation: GrokBotAgent = {
+      ...profile,
+      id: conversationId,
+      botId: normalizedBotId,
+      conversationTitle: "New chat",
+      lastEntry: null,
+      lastActivityAt: Date.now(),
+      hasUnread: false,
+      unreadCount: 0,
+      isPinned: false,
+      isRunning: false,
+      isComposingMessage: false,
+      composingBeat: undefined,
+      status: null,
+      isGroup: false,
+      memberIds: [],
+      members: undefined,
+    };
+
+    commit({
+      agents: [conversation, ...state.agents],
+      transcripts: { ...state.transcripts, [conversationId]: [] },
+      activeAgentId: conversationId,
+      draftAgentId: null,
+      recentlyRevealedIds: new Set([conversationId]),
+      isComposingNew: false,
+      composeQuery: "",
+      isCreateGroupOpen: false,
+      groupDraftName: "",
+      groupDraftMemberIds: [],
+    });
+    return conversationId;
   }
 
   function createAgent(name: string): void {
     const nextName = name.trim();
     if (!nextName) return;
 
-    const hiddenAgent = state.agents.find(
-      (agent) =>
-        state.hiddenAgentIds.has(agent.id) &&
-        agent.name.toLowerCase() === nextName.toLowerCase(),
-    );
-    if (hiddenAgent) {
-      const hiddenAgentIds = new Set(state.hiddenAgentIds);
-      hiddenAgentIds.delete(hiddenAgent.id);
-      const draftAgentId = state.draftAgentId;
-      const isDroppingDraft = draftAgentId != null && draftAgentId !== hiddenAgent.id;
-      commit({
-        agents: isDroppingDraft
-          ? state.agents.filter((agent) => agent.id !== draftAgentId)
-          : state.agents,
-        transcripts: isDroppingDraft
-          ? Object.fromEntries(
-              Object.entries(state.transcripts).filter(([id]) => id !== draftAgentId),
-            )
-          : state.transcripts,
-        hiddenAgentIds,
-        recentlyRevealedIds: new Set([hiddenAgent.id]),
-        activeAgentId: hiddenAgent.id,
-        draftAgentId: isDroppingDraft ? null : state.draftAgentId,
-        isComposingNew: false,
-        composeQuery: "",
-      });
-      clearUnread(hiddenAgent.id);
-      return;
-    }
-
-    const existingAgent = state.agents.find(
-      (agent) => agent.name.toLowerCase() === nextName.toLowerCase(),
-    );
-    if (existingAgent) {
-      openAgent(existingAgent.id);
-      commit({ isComposingNew: false, composeQuery: "" });
-      return;
-    }
-
-    const agentId = `created-${createLiveId()}`;
+    const botId = `bot-${createLiveId()}`;
     const agent: GrokBotAgent = {
-      id: agentId,
+      id: botId,
+      botId,
       name: nextName,
       description: "A newly created agent.",
       lastEntry: null,
@@ -1014,34 +1156,33 @@ function createGrokBotStore(
       isGroup: false,
       memberIds: [],
       settings: state.content.settings.map((setting) => ({ ...setting })),
+      tools: state.content.tools?.map((tool) => ({ ...tool })) ?? [],
+      computerId: state.content.computers?.[0]?.id ?? null,
     };
 
-    const draftAgentId = state.draftAgentId;
-    const isDroppingDraft = draftAgentId != null && draftAgentId !== agentId;
     commit({
-      agents: [
-        agent,
-        ...(isDroppingDraft
-          ? state.agents.filter((candidate) => candidate.id !== draftAgentId)
-          : state.agents),
-      ],
-      transcripts: {
-        ...(isDroppingDraft
-          ? Object.fromEntries(
-              Object.entries(state.transcripts).filter(([id]) => id !== draftAgentId),
-            )
-          : state.transcripts),
-        [agentId]: [],
-      },
-      activeAgentId: agentId,
-      draftAgentId: agentId,
-      recentlyRevealedIds: new Set([agentId]),
+      agents: [agent, ...state.agents],
+      botProfiles: [agent, ...state.botProfiles],
+      transcripts: { ...state.transcripts, [botId]: [] },
+      activeAgentId: botId,
+      draftAgentId: null,
+      recentlyRevealedIds: new Set([botId]),
       isComposingNew: false,
       composeQuery: "",
       isCreateGroupOpen: false,
       groupDraftName: "",
       groupDraftMemberIds: [],
     });
+  }
+
+  function renameConversation(conversationId: string, title: string): void {
+    const nextTitle = title.trim();
+    if (!nextTitle) return;
+    const conversation = state.agents.find(
+      (agent) => agent.id === conversationId,
+    );
+    if (!conversation || conversation.isGroup) return;
+    updateAgent(conversationId, { conversationTitle: nextTitle });
   }
 
   function openCreateGroup(): void {
@@ -1056,7 +1197,11 @@ function createGrokBotStore(
   }
 
   function closeCreateGroup(): void {
-    commit({ isCreateGroupOpen: false, groupDraftName: "", groupDraftMemberIds: [] });
+    commit({
+      isCreateGroupOpen: false,
+      groupDraftName: "",
+      groupDraftMemberIds: [],
+    });
   }
 
   function setGroupDraftName(name: string): void {
@@ -1064,8 +1209,10 @@ function createGrokBotStore(
   }
 
   function toggleGroupDraftMember(agentId: string): void {
-    const agent = state.agents.find((candidate) => candidate.id === agentId);
-    if (!agent || agent.isGroup) return;
+    const agent = state.botProfiles.find(
+      (candidate) => candidate.id === agentId,
+    );
+    if (!agent) return;
     const selected = state.groupDraftMemberIds.includes(agentId);
     commit({
       groupDraftMemberIds: selected
@@ -1084,20 +1231,24 @@ function createGrokBotStore(
     ]);
     const unique = [
       ...new Set(
-        memberIds.filter((id) =>
-          knownMemberIds.has(id) ||
-          state.agents.some((agent) => agent.id === id && !agent.isGroup),
+        memberIds.filter(
+          (id) =>
+            knownMemberIds.has(id) ||
+            state.botProfiles.some((agent) => agent.id === id),
         ),
       ),
     ];
-    if (unique.length < GROUP_MIN_MEMBERS || unique.length > GROUP_MAX_MEMBERS) {
+    if (
+      unique.length < GROUP_MIN_MEMBERS ||
+      unique.length > GROUP_MAX_MEMBERS
+    ) {
       return null;
     }
     return unique;
   }
 
   function applyGroupMembers(group: GrokBotAgent, memberIds: string[]): void {
-    const members = groupMembersFromIds(state.agents, memberIds);
+    const members = groupMembersFromIds(state.botProfiles, memberIds);
     updateAgent(group.id, {
       memberIds,
       members,
@@ -1118,7 +1269,7 @@ function createGrokBotStore(
     if (!group?.isGroup) return;
     if (group.memberIds.includes(memberId)) return;
     if (group.memberIds.length >= GROUP_MAX_MEMBERS) return;
-    if (!state.agents.some((agent) => agent.id === memberId && !agent.isGroup)) {
+    if (!state.botProfiles.some((agent) => agent.id === memberId)) {
       return;
     }
     const nextMemberIds = normalizeGroupMemberIds(
@@ -1163,151 +1314,127 @@ function createGrokBotStore(
     commit({ hiddenAgentIds, recentlyRevealedIds });
   }
 
-  function deleteAgent(agentId: string): void {
-    const agent = state.agents.find((candidate) => candidate.id === agentId);
-    if (!agent) return;
+  function deleteAgent(conversationId: string): void {
+    const conversation = state.agents.find(
+      (candidate) => candidate.id === conversationId,
+    );
+    if (!conversation) return;
 
-    const removedAgentIds = new Set<string>([agentId]);
-    const agentsAfterMemberRemoval = state.agents
-      .filter((candidate) => candidate.id !== agentId)
-      .map((candidate) => {
-        if (!candidate.isGroup || !candidate.memberIds.includes(agentId)) {
-          return candidate;
-        }
-
-        const memberIds = candidate.memberIds.filter((id) => id !== agentId);
-        if (memberIds.length < GROUP_MIN_MEMBERS) {
-          removedAgentIds.add(candidate.id);
-          return candidate;
-        }
-
-        const members =
-          candidate.members?.filter((member) => member.id !== agentId) ??
-          groupMembersFromIds(
-            state.agents.filter((item) => item.id !== agentId),
-            memberIds,
-          );
-        return {
-          ...candidate,
-          memberIds,
-          members,
-          description: `${members.length} agents in this conversation`,
-        };
-      });
-    const remainingAgents = agentsAfterMemberRemoval.filter(
-      (candidate) => !removedAgentIds.has(candidate.id),
+    const remainingAgents = state.agents.filter(
+      (candidate) => candidate.id !== conversationId,
     );
     const deletedEntryIds = new Set(
-      [...removedAgentIds].flatMap((id) =>
-        (state.transcripts[id] ?? []).map((entry) => entry.id),
-      ),
+      (state.transcripts[conversationId] ?? []).map((entry) => entry.id),
     );
     const hiddenAgentIds = new Set(state.hiddenAgentIds);
     const recentlyRevealedIds = new Set(state.recentlyRevealedIds);
-    for (const removedAgentId of removedAgentIds) {
-      hiddenAgentIds.delete(removedAgentId);
-      recentlyRevealedIds.delete(removedAgentId);
-    }
+    hiddenAgentIds.delete(conversationId);
+    recentlyRevealedIds.delete(conversationId);
+
     const orderedRemainingAgents = [...remainingAgents].sort((left, right) => {
       if (Boolean(left.isPinned) !== Boolean(right.isPinned)) {
         return left.isPinned ? -1 : 1;
       }
       return right.lastActivityAt - left.lastActivityAt;
     });
-    const nextActiveAgent =
-      removedAgentIds.has(state.activeAgentId)
-        ? orderedRemainingAgents.find((candidate) => !hiddenAgentIds.has(candidate.id)) ??
-          orderedRemainingAgents[0] ??
-          null
-        : null;
-    const activeAgentId =
-      removedAgentIds.has(state.activeAgentId)
-        ? nextActiveAgent?.id ?? ""
-        : state.activeAgentId;
+    const wasActive = state.activeAgentId === conversationId;
+    const nextActiveAgent = wasActive
+      ? (orderedRemainingAgents.find(
+          (candidate) => !hiddenAgentIds.has(candidate.id),
+        ) ??
+        orderedRemainingAgents[0] ??
+        null)
+      : null;
+    const activeAgentId = wasActive
+      ? (nextActiveAgent?.id ?? "")
+      : state.activeAgentId;
     const settingsAgentDeleted =
       state.settingsAgentId !== null &&
-      removedAgentIds.has(state.settingsAgentId);
+      state.settingsAgentId === conversationId;
     const clearsScreenOverlay =
       state.screenOverlay?.origin.kind === "agent"
-        ? removedAgentIds.has(state.screenOverlay.origin.agentId)
+        ? state.screenOverlay.origin.agentId === conversationId
         : deletedEntryIds.has(state.screenOverlay?.origin.entryId ?? "");
     const nextAgents = remainingAgents.map((candidate) =>
       nextActiveAgent?.id === candidate.id && candidate.hasUnread
         ? { ...candidate, hasUnread: false, unreadCount: 0 }
         : candidate,
     );
-    const cancelsComposing =
-      (state.draftAgentId !== null && removedAgentIds.has(state.draftAgentId)) ||
-      removedAgentIds.has(state.activeAgentId);
+    const cancelsComposing = state.draftAgentId === conversationId || wasActive;
 
-    for (const removedAgentId of removedAgentIds) {
-      for (const controller of agentScriptControllers.get(removedAgentId) ?? []) {
-        controller.abort();
-      }
-      agentScriptControllers.delete(removedAgentId);
-      activeScriptCounts.delete(removedAgentId);
+    for (const controller of agentScriptControllers.get(conversationId) ?? []) {
+      controller.abort();
     }
+    agentScriptControllers.delete(conversationId);
+    activeScriptCounts.delete(conversationId);
     for (const entryId of deletedEntryIds) signalEntry(entryId);
 
     commit({
       content: {
         ...state.content,
         agents: state.content.agents.filter(
-          ({ agent: candidate }) => !removedAgentIds.has(candidate.id),
+          ({ agent: candidate }) => candidate.id !== conversationId,
         ),
       },
       agents: nextAgents,
       transcripts: Object.fromEntries(
-        Object.entries(state.transcripts).filter(([id]) => !removedAgentIds.has(id)),
+        Object.entries(state.transcripts).filter(
+          ([id]) => id !== conversationId,
+        ),
       ),
       activeAgentId,
       hiddenAgentIds,
       recentlyRevealedIds,
       draftAgentId:
-        state.draftAgentId !== null && removedAgentIds.has(state.draftAgentId)
-          ? null
-          : state.draftAgentId,
+        state.draftAgentId === conversationId ? null : state.draftAgentId,
       isComposingNew: cancelsComposing ? false : state.isComposingNew,
       composeQuery: cancelsComposing ? "" : state.composeQuery,
       settingsAgentId: settingsAgentDeleted ? null : state.settingsAgentId,
       isSettingsOpen: settingsAgentDeleted ? false : state.isSettingsOpen,
       contextMenu:
-        state.contextMenu &&
-        removedAgentIds.has(state.contextMenu.target.agentId)
+        state.contextMenu?.target.agentId === conversationId
           ? null
           : state.contextMenu,
       screenOverlay: clearsScreenOverlay ? null : state.screenOverlay,
-      groupDraftMemberIds: state.groupDraftMemberIds.filter(
-        (id) => !removedAgentIds.has(id),
-      ),
     });
   }
 
   function createGroup(name?: string): string | null {
     const memberIds = canonicalMemberIds(
       state.groupDraftMemberIds.filter((id) =>
-        state.agents.some((agent) => agent.id === id && !agent.isGroup),
+        state.botProfiles.some((agent) => agent.id === id),
       ),
     );
-    if (memberIds.length < GROUP_MIN_MEMBERS || memberIds.length > GROUP_MAX_MEMBERS) {
+    if (
+      memberIds.length < GROUP_MIN_MEMBERS ||
+      memberIds.length > GROUP_MAX_MEMBERS
+    ) {
       return null;
     }
 
     const memberKey = memberIds.join(",");
     const existingGroup = state.agents.find(
       (agent) =>
-        agent.isGroup && canonicalMemberIds(agent.memberIds).join(",") === memberKey,
+        agent.isGroup &&
+        canonicalMemberIds(agent.memberIds).join(",") === memberKey,
     );
     if (existingGroup) {
       openAgent(existingGroup.id);
-      commit({ isCreateGroupOpen: false, groupDraftName: "", groupDraftMemberIds: [] });
+      commit({
+        isCreateGroupOpen: false,
+        groupDraftName: "",
+        groupDraftMemberIds: [],
+      });
       return existingGroup.id;
     }
 
     const members = groupMembersFromIds(state.agents, memberIds);
     const groupName =
       (name ?? state.groupDraftName).trim() ||
-      `Group with ${members.slice(0, 2).map((member) => member.name).join(" + ")}`;
+      `Group with ${members
+        .slice(0, 2)
+        .map((member) => member.name)
+        .join(" + ")}`;
     const groupId = `group-${createLiveId()}`;
     const group: GrokBotAgent = {
       id: groupId,
@@ -1342,7 +1469,14 @@ function createGrokBotStore(
   }
 
   function openSettings(agentId = state.activeAgentId): void {
-    const target = state.agents.find((agent) => agent.id === agentId);
+    const conversation = state.agents.find((agent) => agent.id === agentId);
+    const target = conversation
+      ? conversation.isGroup
+        ? conversation
+        : (state.botProfiles.find(
+            (profile) => profile.id === (conversation.botId ?? conversation.id),
+          ) ?? conversation)
+      : state.botProfiles.find((profile) => profile.id === agentId);
     if (!target) return;
     setDesktopPaneOpen(true);
     commit({ isSettingsOpen: true, settingsAgentId: target.id });
@@ -1355,16 +1489,28 @@ function createGrokBotStore(
 
   function updateAgentProfile(
     agentId: string,
-    patch: Partial<Pick<GrokBotAgent, "name" | "title" | "description" | "avatarModel">>,
+    patch: Partial<
+      Pick<GrokBotAgent, "name" | "title" | "description" | "avatarModel">
+    >,
   ): void {
-    const agent = state.agents.find((candidate) => candidate.id === agentId);
+    const conversation = state.agents.find(
+      (candidate) => candidate.id === agentId,
+    );
+    const profileId = resolveBotProfileId(agentId);
+    const agent =
+      (profileId
+        ? state.botProfiles.find((candidate) => candidate.id === profileId)
+        : null) ?? conversation;
     if (!agent) return;
-    updateAgent(agentId, {
+    const nextPatch = {
       name: patch.name?.trim() || agent.name,
       title: patch.title ?? agent.title,
       description: patch.description ?? agent.description,
       avatarModel: patch.avatarModel ?? agent.avatarModel,
-    });
+    };
+    if (!updateBot(agentId, nextPatch)) {
+      updateAgent(agent.id, nextPatch);
+    }
   }
 
   function setAgentToolEnabled(
@@ -1372,21 +1518,29 @@ function createGrokBotStore(
     toolId: GrokBotToolId,
     enabled: boolean,
   ): void {
-    const agent = state.agents.find((candidate) => candidate.id === agentId);
+    const botId = resolveBotProfileId(agentId);
+    const agent = state.botProfiles.find((candidate) => candidate.id === botId);
     if (!agent) return;
-    const tools = agent.tools ?? state.content.tools?.map((tool) => ({ ...tool })) ?? [];
-    updateAgent(agentId, {
+    const tools =
+      agent.tools ?? state.content.tools?.map((tool) => ({ ...tool })) ?? [];
+    updateBot(agentId, {
       tools: tools.map((tool) =>
         tool.id === toolId ? { ...tool, isEnabled: enabled } : tool,
       ),
     });
   }
 
-  function assignAgentComputer(agentId: string, computerId: string | null): void {
-    if (computerId !== null && !state.content.computers?.some((computer) => computer.id === computerId)) {
+  function assignAgentComputer(
+    agentId: string,
+    computerId: string | null,
+  ): void {
+    if (
+      computerId !== null &&
+      !state.content.computers?.some((computer) => computer.id === computerId)
+    ) {
       return;
     }
-    updateAgent(agentId, { computerId });
+    updateBot(agentId, { computerId });
   }
 
   function openContextMenu(menu: GrokBotContextMenuState): void {
@@ -1475,7 +1629,11 @@ function createGrokBotStore(
   }
 
   function commitAsrTranscript(text?: string): void {
-    const transcript = (text ?? state.asr.interimTranscript ?? state.asr.transcript).trim();
+    const transcript = (
+      text ??
+      state.asr.interimTranscript ??
+      state.asr.transcript
+    ).trim();
     if (!transcript) return;
     commit({
       scriptedComposerText: transcript,
@@ -1539,27 +1697,34 @@ function createGrokBotStore(
     settingId: string,
     enabled: boolean,
   ): void {
-    const agent = state.agents.find((candidate) => candidate.id === agentId);
+    const botId = resolveBotProfileId(agentId);
+    const agent = state.botProfiles.find((candidate) => candidate.id === botId);
     if (!agent?.settings) return;
-    updateAgent(agentId, {
+    updateBot(agentId, {
       settings: agent.settings.map((setting) =>
         setting.id === settingId ? { ...setting, isEnabled: enabled } : setting,
       ),
     });
   }
 
-  function applyEndState(nextContent: GrokBotContent, nextActiveAgentId: string): void {
+  function applyEndState(
+    nextContent: GrokBotContent,
+    nextActiveAgentId: string,
+  ): void {
     cancelRuntime();
     const nextAgents = agentsFromContent(nextContent);
     commit({
       content: nextContent,
       agents: nextAgents,
       transcripts: Object.fromEntries(
-        nextContent.agents.map(({ agent, transcript }) => [agent.id, transcript]),
+        nextContent.agents.map(({ agent, transcript }) => [
+          agent.id,
+          transcript,
+        ]),
       ),
       activeAgentId: nextAgents.some((agent) => agent.id === nextActiveAgentId)
         ? nextActiveAgentId
-        : nextAgents[0]?.id ?? "",
+        : (nextAgents[0]?.id ?? ""),
       hiddenAgentIds: new Set<string>(),
       recentlyRevealedIds: new Set<string>(),
       isSidebarCollapsed: false,
@@ -1581,6 +1746,7 @@ function createGrokBotStore(
   }
 
   actions = {
+    openConversation,
     openAgent,
     setTheme,
     sendMessage,
@@ -1597,8 +1763,11 @@ function createGrokBotStore(
     discardOutboundMessage,
     openCompose,
     closeCompose,
+    setComposeMode,
     setComposeQuery,
     createAgent,
+    createConversation,
+    renameConversation,
     openCreateGroup,
     closeCreateGroup,
     setGroupDraftName,
@@ -1677,6 +1846,8 @@ const GrokBotSlotsContext = createContext<GrokBotSlots>({});
 
 export interface GrokBotStoreProviderProps {
   content?: GrokBotContent;
+  activeConversationId?: string;
+  /** @deprecated Use activeConversationId. */
   activeAgentId?: string;
   theme?: BabyGrokBotTheme;
   integrations?: GrokBotIntegrations;
@@ -1686,6 +1857,7 @@ export interface GrokBotStoreProviderProps {
 
 export function GrokBotStoreProvider({
   content,
+  activeConversationId,
   activeAgentId,
   theme,
   integrations,
@@ -1693,7 +1865,11 @@ export function GrokBotStoreProvider({
   children,
 }: GrokBotStoreProviderProps) {
   const [store] = useState(() =>
-    createGrokBotStore(content ?? DEFAULT_DEMO_CONTENT, activeAgentId, theme),
+    createGrokBotStore(
+      content ?? DEFAULT_DEMO_CONTENT,
+      activeConversationId ?? activeAgentId,
+      theme,
+    ),
   );
 
   useEffect(() => {
@@ -1780,12 +1956,29 @@ export function useActiveAgent(): GrokBotAgent | undefined {
   );
 }
 
+export const useActiveConversation = useActiveAgent;
+
+export function useBotProfiles(): GrokBotAgent[] {
+  const store = useRequiredGrokBotStore();
+  return useSyncExternalStore(
+    store.subscribe,
+    () => store.getSnapshot().state.botProfiles,
+    () => store.getSnapshot().state.botProfiles,
+  );
+}
+
 export function useActiveTranscript(): GrokBotTranscriptEntry[] {
   const store = useRequiredGrokBotStore();
   return useSyncExternalStore(
     store.subscribe,
-    () => store.getSnapshot().state.transcripts[store.getSnapshot().state.activeAgentId] ?? EMPTY_TRANSCRIPT,
-    () => store.getSnapshot().state.transcripts[store.getSnapshot().state.activeAgentId] ?? EMPTY_TRANSCRIPT,
+    () =>
+      store.getSnapshot().state.transcripts[
+        store.getSnapshot().state.activeAgentId
+      ] ?? EMPTY_TRANSCRIPT,
+    () =>
+      store.getSnapshot().state.transcripts[
+        store.getSnapshot().state.activeAgentId
+      ] ?? EMPTY_TRANSCRIPT,
   );
 }
 

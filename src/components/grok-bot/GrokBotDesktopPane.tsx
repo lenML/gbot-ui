@@ -10,25 +10,17 @@ import type {
   PointerEvent as ReactPointerEvent,
 } from "react";
 import { useReducedMotion } from "motion/react";
-import {
-  AgentCursor,
-  CardBadge,
-  LabeledCursor,
-} from "../index";
+import { AgentCursor, CardBadge, LabeledCursor } from "../index";
 import type {
   ComputerUseStatus,
   GrokBotTranscriptEntry,
   TranscriptComputerUseEntry,
 } from "../../lib/grok-bot/types";
-import {
-  useGrokBotActions,
-  useGrokBotStore,
-} from "../../lib/grok-bot/store";
+import { useGrokBotActions, useGrokBotStore } from "../../lib/grok-bot/store";
 import { AgentSettingsPanel } from "./AgentSettingsPanel";
 import { GrokBotIcon } from "./AgentAvatar";
 import { ComputerSurface } from "./ComputerSurface";
 import { desktopContentWindows } from "./desktopContent";
-
 
 const cn = (...values: Array<string | false | null | undefined>) =>
   values.filter(Boolean).join(" ");
@@ -37,7 +29,11 @@ type DisplayComputerStatus = ComputerUseStatus | "ready";
 
 const STATUS_DETAILS: Record<
   DisplayComputerStatus,
-  { label: string; tone: "accent" | "muted" | "success" | "warning"; spinner: boolean }
+  {
+    label: string;
+    tone: "accent" | "muted" | "success" | "warning";
+    spinner: boolean;
+  }
 > = {
   "action-needed": {
     label: "Action needed",
@@ -154,9 +150,7 @@ export interface GrokBotDesktopPaneProps {
   className?: string;
 }
 
-export function GrokBotDesktopPane({
-  className,
-}: GrokBotDesktopPaneProps) {
+export function GrokBotDesktopPane({ className }: GrokBotDesktopPaneProps) {
   const { state } = useGrokBotStore();
   const actions = useGrokBotActions();
   const reducedMotion = useReducedMotion() ?? false;
@@ -246,6 +240,7 @@ export function GrokBotDesktopPane({
     state.agents.find((agent) => agent.id === state.activeAgentId) ??
     state.agents[0];
   const settingsAgent =
+    state.botProfiles.find((agent) => agent.id === state.settingsAgentId) ??
     state.agents.find((agent) => agent.id === state.settingsAgentId) ??
     activeAgent;
   const settingsView = view === "settings";
@@ -346,10 +341,7 @@ export function GrokBotDesktopPane({
   return (
     <aside
       aria-label={settingsView ? "Agent settings" : "Agent computer"}
-      className={cn(
-        "baby-grok-bot-side-pane group/desktop-pane",
-        className,
-      )}
+      className={cn("baby-grok-bot-side-pane group/desktop-pane", className)}
       data-computer-status={status}
       data-open="true"
       data-reduced-motion={reducedMotion || undefined}
@@ -381,7 +373,11 @@ export function GrokBotDesktopPane({
             aria-hidden="true"
             className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--grok-bot-current-agent-tint)]/45 text-[var(--grok-bot-current-agent-accent)]"
           >
-            {settingsView ? <GrokBotIcon name="gear" size={15} /> : <DesktopIcon />}
+            {settingsView ? (
+              <GrokBotIcon name="gear" size={15} />
+            ) : (
+              <DesktopIcon />
+            )}
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-semibold leading-[18px]">
@@ -407,7 +403,9 @@ export function GrokBotDesktopPane({
             </button>
           ) : null}
           <button
-            aria-label={settingsView ? "Close agent settings" : "Close agent computer"}
+            aria-label={
+              settingsView ? "Close agent settings" : "Close agent computer"
+            }
             className="baby-grok-bot-window-action"
             onClick={() => {
               setView("computer");
@@ -423,7 +421,11 @@ export function GrokBotDesktopPane({
           </button>
         </header>
 
-        <div className="baby-grok-bot-inspector-tabs" role="tablist" aria-label="Agent inspector">
+        <div
+          className="baby-grok-bot-inspector-tabs"
+          role="tablist"
+          aria-label="Agent inspector"
+        >
           <button
             aria-selected={!settingsView}
             data-active={!settingsView || undefined}
@@ -453,70 +455,70 @@ export function GrokBotDesktopPane({
             onOpenComputer={() => setView("computer")}
           />
         ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
-          <div className="relative overflow-hidden rounded-xl border-[0.5px] border-[var(--grok-bot-border-default)] bg-[var(--grok-bot-bg-editor)] shadow-sm">
-            <ComputerSurface
-              agent={activeAgent!}
-              aspectRatioClass="aspect-[16/10]"
-              className="!rounded-none"
-              entry={computerEntry}
-              onExpand={toggleScreen}
-              showDock={false}
-              windows={windows}
-            />
-            {status === "working" || status === "action-needed" ? (
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute left-[57%] top-[42%] z-[26] scale-75 drop-shadow-sm"
-              >
-                <AgentCursor />
-              </div>
-            ) : null}
-            {status === "handed-over" ? (
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute left-[57%] top-[42%] z-[26] scale-75 drop-shadow-sm"
-              >
-                <LabeledCursor label="You" />
-              </div>
-            ) : null}
-          </div>
-
-          <section aria-live="polite" className="space-y-2">
-            <div className="flex items-center gap-2">
-              <CardBadge
-                label={statusDetails.label}
-                spinner={statusDetails.spinner}
-                tone={statusDetails.tone}
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
+            <div className="relative overflow-hidden rounded-xl border-[0.5px] border-[var(--grok-bot-border-default)] bg-[var(--grok-bot-bg-editor)] shadow-sm">
+              <ComputerSurface
+                agent={activeAgent!}
+                aspectRatioClass="aspect-[16/10]"
+                className="!rounded-none"
+                entry={computerEntry}
+                onExpand={toggleScreen}
+                showDock={false}
+                windows={windows}
               />
-              <span className="text-[11px] text-[var(--cursor-text-tertiary)]">
-                {windows.length} app{windows.length === 1 ? "" : "s"} open
-              </span>
+              {status === "working" || status === "action-needed" ? (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-[57%] top-[42%] z-[26] scale-75 drop-shadow-sm"
+                >
+                  <AgentCursor />
+                </div>
+              ) : null}
+              {status === "handed-over" ? (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-[57%] top-[42%] z-[26] scale-75 drop-shadow-sm"
+                >
+                  <LabeledCursor label="You" />
+                </div>
+              ) : null}
             </div>
-            <p className="line-clamp-3 text-[12px] leading-[17px] text-[var(--cursor-text-secondary)]">
-              {previewDescription}
-            </p>
-          </section>
 
-          <div className="mt-auto grid grid-cols-2 gap-2 border-t-[0.5px] border-[var(--grok-bot-border-default)] pt-3">
-            <button
-              className="baby-grok-bot-card-action justify-center"
-              data-variant="secondary"
-              onClick={toggleScreen}
-              type="button"
-            >
-              {screenOpen ? "Close screen" : "Open screen"}
-            </button>
-            <button
-              className="baby-grok-bot-card-action justify-center"
-              data-variant="primary"
-              onClick={() => actions.setDesktopPaneOpen(false)}
-              type="button"
-            >
-              Hide pane
-            </button>
+            <section aria-live="polite" className="space-y-2">
+              <div className="flex items-center gap-2">
+                <CardBadge
+                  label={statusDetails.label}
+                  spinner={statusDetails.spinner}
+                  tone={statusDetails.tone}
+                />
+                <span className="text-[11px] text-[var(--cursor-text-tertiary)]">
+                  {windows.length} app{windows.length === 1 ? "" : "s"} open
+                </span>
+              </div>
+              <p className="line-clamp-3 text-[12px] leading-[17px] text-[var(--cursor-text-secondary)]">
+                {previewDescription}
+              </p>
+            </section>
+
+            <div className="mt-auto grid grid-cols-2 gap-2 border-t-[0.5px] border-[var(--grok-bot-border-default)] pt-3">
+              <button
+                className="baby-grok-bot-card-action justify-center"
+                data-variant="secondary"
+                onClick={toggleScreen}
+                type="button"
+              >
+                {screenOpen ? "Close screen" : "Open screen"}
+              </button>
+              <button
+                className="baby-grok-bot-card-action justify-center"
+                data-variant="primary"
+                onClick={() => actions.setDesktopPaneOpen(false)}
+                type="button"
+              >
+                Hide pane
+              </button>
+            </div>
           </div>
-        </div>
         )}
       </div>
     </aside>

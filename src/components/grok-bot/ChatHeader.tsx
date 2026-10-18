@@ -13,6 +13,7 @@ export function ChatHeader() {
   const content = useGrokBotContent();
   const { state, actions } = useGrokBotStore();
   const isWorking = Boolean(agent?.isRunning || agent?.isComposingMessage);
+  const displayTitle = agent?.conversationTitle ?? agent?.name ?? "No agent";
   const isScreenOpen =
     state.screenOverlay?.origin.kind === "agent" &&
     state.screenOverlay.origin.agentId === agent?.id;
@@ -39,7 +40,7 @@ export function ChatHeader() {
         />
         <span className="min-w-0">
           <span className="block truncate text-[13px] leading-4 font-medium tracking-[-0.15px] text-[color:var(--cursor-text-primary)]">
-            {agent?.name ?? "No agent"}
+            {displayTitle}
           </span>
         </span>
       </div>
@@ -50,7 +51,11 @@ export function ChatHeader() {
       >
         {agent?.status ? (
           <span className="hidden min-w-0 items-center gap-1.5 sm:flex">
-            <GrokBotIcon className="shrink-0" name={agent.status.icon} size={12} />
+            <GrokBotIcon
+              className="shrink-0"
+              name={agent.status.icon}
+              size={12}
+            />
             <span className="truncate">{agent.status.label}</span>
           </span>
         ) : isWorking ? (
@@ -58,14 +63,16 @@ export function ChatHeader() {
             <span className="baby-grok-bot-typing-dot scale-75" />
             <span>
               {agent?.isComposingMessage
-                ? agent.composingBeat?.label ?? "Working"
+                ? (agent.composingBeat?.label ?? "Working")
                 : "Working"}
             </span>
           </span>
         ) : null}
 
         <button
-          aria-label={state.isDesktopPaneOpen ? "Hide desktop pane" : "Show desktop pane"}
+          aria-label={
+            state.isDesktopPaneOpen ? "Hide desktop pane" : "Show desktop pane"
+          }
           aria-pressed={state.isDesktopPaneOpen}
           className={cn(
             "baby-grok-bot-window-action focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--grok-bot-current-agent-accent)]",

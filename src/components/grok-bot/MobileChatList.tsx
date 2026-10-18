@@ -74,6 +74,7 @@ const conversationPreview = (agent: GrokBotAgent) => {
   if (agent.isComposingMessage) return "Typing...";
   if (agent.status) return agent.status.label;
   if (agent.lastEntry) return formatLastEntryPreview(agent.lastEntry);
+  if (agent.conversationTitle) return agent.name;
   if (agent.isGroup && agent.members?.length) {
     return agent.members.map((member) => member.name).join(", ");
   }
@@ -241,8 +242,9 @@ function ConversationRow({
   onOpenMenu: (menu: GrokBotContextMenuState) => void;
 }) {
   const working = agent.isRunning || agent.isComposingMessage;
-  const unreadCount = agent.hasUnread ? agent.unreadCount ?? 0 : 0;
+  const unreadCount = agent.hasUnread ? (agent.unreadCount ?? 0) : 0;
   const preview = conversationPreview(agent);
+  const displayTitle = agent.conversationTitle ?? agent.name;
   const slots = useGrokBotSlots();
   const interactions = useConversationRowInteractions({
     agentId: agent.id,
@@ -251,7 +253,7 @@ function ConversationRow({
   });
   const pinned = agent.isPinned === true;
   const label = [
-    agent.isGroup ? `Group ${agent.name}` : agent.name,
+    agent.isGroup ? `Group ${displayTitle}` : displayTitle,
     pinned ? "Pinned" : null,
     unreadLabel(agent),
     working ? "Working" : null,
@@ -305,7 +307,7 @@ function ConversationRow({
         <span className="flex items-center justify-between gap-2">
           <span className="flex min-w-0 flex-1 items-center gap-1.5">
             <span className="min-w-0 truncate text-[14px] leading-5 tracking-[-0.15px] text-[color:var(--cursor-text-primary)]">
-              {agent.name}
+              {displayTitle}
             </span>
             {pinned ? (
               <svg
@@ -325,7 +327,9 @@ function ConversationRow({
             ) : null}
           </span>
           {agent.isGroup ? (
-            <span className="baby-grok-bot-chat-kind-badge shrink-0">Group</span>
+            <span className="baby-grok-bot-chat-kind-badge shrink-0">
+              Group
+            </span>
           ) : null}
           <span className="shrink-0 text-[11px] leading-4 text-[color:var(--cursor-text-tertiary)]">
             {formatAgentTime(agent.lastActivityAt)}
@@ -403,7 +407,9 @@ export function MobileChatList({
         <div className="flex shrink-0 items-center gap-1.5">
           {onToggleTheme ? (
             <button
-              aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+              aria-label={
+                isDark ? "Switch to light theme" : "Switch to dark theme"
+              }
               className="flex size-8 shrink-0 items-center justify-center rounded-full border-[0.5px] border-[var(--grok-bot-border-default)] bg-[var(--grok-bot-bg-elevated)] text-[color:var(--cursor-text-secondary)] shadow-sm backdrop-blur-xl hover:text-[color:var(--cursor-text-primary)]"
               onClick={onToggleTheme}
               title={isDark ? "Switch to light theme" : "Switch to dark theme"}
@@ -417,7 +423,13 @@ export function MobileChatList({
                   viewBox="0 0 16 16"
                   width="15"
                 >
-                  <circle cx="8" cy="8" r="2.75" stroke="currentColor" strokeWidth="1.35" />
+                  <circle
+                    cx="8"
+                    cy="8"
+                    r="2.75"
+                    stroke="currentColor"
+                    strokeWidth="1.35"
+                  />
                   <path
                     d="M8 1.5v1.25M8 13.25v1.25M1.5 8h1.25M13.25 8h1.25M3.4 3.4l.9.9M11.7 11.7l.9.9M12.6 3.4l-.9.9M4.3 11.7l-.9.9"
                     stroke="currentColor"

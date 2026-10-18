@@ -34,7 +34,9 @@ function isNativeContextTarget(target: Element): boolean {
 
 function transcriptEntryElements(root: HTMLElement): HTMLElement[] {
   return Array.from(
-    root.querySelectorAll<HTMLElement>(":scope > div > .baby-grok-bot-entry-enter"),
+    root.querySelectorAll<HTMLElement>(
+      ":scope > div > .baby-grok-bot-entry-enter",
+    ),
   );
 }
 
@@ -42,8 +44,9 @@ function ComposeNewAgent() {
   const { state, actions } = useGrokBotStore();
   const inputRef = useRef<HTMLInputElement>(null);
   const query = state.composeQuery;
+  const isBotMode = state.composeMode === "bot";
   const normalizedQuery = query.trim().toLowerCase();
-  const matches = state.agents
+  const matches = state.botProfiles
     .filter((agent) =>
       normalizedQuery
         ? [agent.name, agent.title, agent.description]
@@ -57,19 +60,33 @@ function ComposeNewAgent() {
     inputRef.current?.focus();
   }, []);
 
-  const create = () => {
+  const submit = () => {
+    if (isBotMode) {
+      if (!query.trim()) {
+        inputRef.current?.focus();
+        return;
+      }
+      actions.createAgent(query);
+      return;
+    }
+
+    if (matches[0]) {
+      actions.createConversation(matches[0].botId ?? matches[0].id);
+      return;
+    }
+
     if (!query.trim()) {
       inputRef.current?.focus();
       return;
     }
-    actions.createAgent(query);
+    actions.setComposeMode("bot");
   };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="baby-grok-bot-compose-header">
         <button
-          aria-label="Close new agent"
+          aria-label="Close new conversation"
           className="baby-grok-bot-window-action focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--grok-bot-current-agent-accent)]"
           onClick={actions.closeCompose}
           title="Close"
@@ -80,20 +97,20 @@ function ComposeNewAgent() {
         <div className="baby-grok-bot-compose-field">
           <GrokBotIcon className="shrink-0" name="search" size={14} />
           <input
-            aria-label="Create a new agent"
+            aria-label={isBotMode ? "Create a new bot" : "Search bots"}
             className="min-w-0 flex-1 bg-transparent text-[14px] leading-5 tracking-[-0.15px] text-[color:var(--cursor-text-primary)] outline-none placeholder:text-[color:var(--cursor-text-tertiary)]"
             onChange={(event) => actions.setComposeQuery(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
-                create();
+                submit();
               }
               if (event.key === "Escape") {
                 event.preventDefault();
                 actions.closeCompose();
               }
             }}
-            placeholder="Name a new agent"
+            placeholder={isBotMode ? "Name a new bot" : "Search bots"}
             ref={inputRef}
             value={query}
           />
@@ -102,10 +119,10 @@ function ComposeNewAgent() {
           className="baby-grok-bot-card-action"
           data-variant="primary"
           disabled={!query.trim()}
-          onClick={create}
+          onClick={submit}
           type="button"
         >
-          Create
+          {isBotMode ? "Create bot" : matches[0] ? "Start chat" : "New bot"}
         </button>
       </div>
 
@@ -113,14 +130,16 @@ function ComposeNewAgent() {
         <div className="mx-auto flex max-w-[560px] flex-col gap-4">
           <div>
             <h2 className="text-[20px] leading-7 font-medium tracking-[-0.3px] text-[color:var(--cursor-text-primary)]">
-              Meet a new teammate
+              {isBotMode ? "Create a new bot" : "Start a private chat"}
             </h2>
             <p className="mt-1 text-[13px] leading-5 text-[color:var(--cursor-text-secondary)]">
-              Name an agent to start a private thread, or choose an existing teammate below.
+              {isBotMode
+                ? "Create a bot profile. Its first private chat opens automatically."
+                : "Choose a bot. Every selection creates an independent private session."}
             </p>
           </div>
 
-          {matches.length > 0 ? (
+          {!isBotMode && matches.length > 0 ? (
             <div
               aria-label="Existing agents"
               className="baby-grok-bot-compose-results rounded-xl border-[0.5px] border-[var(--grok-bot-border-default)]"
@@ -130,10 +149,9 @@ function ComposeNewAgent() {
                 <button
                   className="baby-grok-bot-compose-result focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--grok-bot-current-agent-accent)]"
                   key={agent.id}
-                  onClick={() => {
-                    actions.setComposeQuery(agent.name);
-                    actions.createAgent(agent.name);
-                  }}
+                  onClick={() =>
+                    actions.createConversation(agent.botId ?? agent.id)
+                  }
                   role="option"
                   type="button"
                 >
@@ -147,7 +165,7 @@ function ComposeNewAgent() {
                     </span>
                   </span>
                   <span className="shrink-0 text-[11px] leading-4 text-[color:var(--cursor-text-tertiary)]">
-                    {agent.isGroup ? "Group" : "Agent"}
+                    New chat
                   </span>
                 </button>
               ))}
@@ -157,12 +175,14 @@ function ComposeNewAgent() {
           <button
             className="baby-grok-bot-card-action mx-auto"
             data-variant="primary"
-            disabled={!query.trim()}
-            onClick={create}
+            disabled={isBotMode && !query.trim()}
+            onClick={() =>
+              isBotMode ? submit() : actions.setComposeMode("bot")
+            }
             type="button"
           >
             <GrokBotIcon name="plus" size={13} />
-            Create {query.trim() ? `"${query.trim()}"` : "agent"}
+            {isBotMode ? "Create bot" : "Create a new bot instead"}
           </button>
         </div>
       </div>
@@ -187,11 +207,7 @@ export function DesktopShell({ className }: DesktopShellProps) {
     : state.sidebarWidth;
   const paneWidth = state.isDesktopPaneOpen ? state.desktopPaneWidth : 0;
 
-  const openMessageMenu = (
-    entryId: string,
-    x: number,
-    y: number,
-  ) => {
+  const openMessageMenu = (entryId: string, x: number, y: number) => {
     actions.openContextMenu({
       target: { kind: "message", agentId: state.activeAgentId, entryId },
       x,
@@ -213,11 +229,14 @@ export function DesktopShell({ className }: DesktopShellProps) {
       return;
     }
 
-    const entryElement = target.closest<HTMLElement>(".baby-grok-bot-entry-enter");
+    const entryElement = target.closest<HTMLElement>(
+      ".baby-grok-bot-entry-enter",
+    );
     const transcriptRoot = entryElement?.closest<HTMLElement>('[role="log"]');
     if (!entryElement || !transcriptRoot) return;
 
-    const entryIndex = transcriptEntryElements(transcriptRoot).indexOf(entryElement);
+    const entryIndex =
+      transcriptEntryElements(transcriptRoot).indexOf(entryElement);
     const entry = transcript[entryIndex];
     if (!entry) return;
 
@@ -226,20 +245,25 @@ export function DesktopShell({ className }: DesktopShellProps) {
   };
 
   const handleChatKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
-    if (!((event.shiftKey && event.key === "F10") || event.key === "ContextMenu")) {
+    if (
+      !((event.shiftKey && event.key === "F10") || event.key === "ContextMenu")
+    ) {
       return;
     }
 
     const target = event.target;
     if (target instanceof Element && isNativeContextTarget(target)) return;
 
-    const transcriptRoot = event.currentTarget.querySelector<HTMLElement>('[role="log"]');
+    const transcriptRoot =
+      event.currentTarget.querySelector<HTMLElement>('[role="log"]');
     if (!transcriptRoot || transcript.length === 0) return;
 
     let entryElement: HTMLElement | null = null;
     const activeElement = document.activeElement;
     if (activeElement instanceof Element) {
-      entryElement = activeElement.closest<HTMLElement>(".baby-grok-bot-entry-enter");
+      entryElement = activeElement.closest<HTMLElement>(
+        ".baby-grok-bot-entry-enter",
+      );
     }
 
     const entryElements = transcriptEntryElements(transcriptRoot);
@@ -249,7 +273,9 @@ export function DesktopShell({ className }: DesktopShellProps) {
         entryElements.find((candidate) => {
           const rect = candidate.getBoundingClientRect();
           return rect.bottom >= rootRect.top && rect.top <= rootRect.bottom;
-        }) ?? entryElements.at(-1) ?? null;
+        }) ??
+        entryElements.at(-1) ??
+        null;
     }
 
     if (!entryElement) return;
@@ -276,7 +302,8 @@ export function DesktopShell({ className }: DesktopShellProps) {
     syncWidth(shell.getBoundingClientRect().width);
 
     if (typeof ResizeObserver === "undefined") {
-      const onWindowResize = () => syncWidth(shell.getBoundingClientRect().width);
+      const onWindowResize = () =>
+        syncWidth(shell.getBoundingClientRect().width);
       window.addEventListener("resize", onWindowResize);
       return () => window.removeEventListener("resize", onWindowResize);
     }
@@ -293,7 +320,8 @@ export function DesktopShell({ className }: DesktopShellProps) {
     <div
       className={cn(
         "baby-grok-bot-shell",
-        !state.isPanelResizing && "transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none",
+        !state.isPanelResizing &&
+          "transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none",
         className,
       )}
       data-panel-resizing={state.isPanelResizing || undefined}

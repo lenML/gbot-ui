@@ -29,8 +29,16 @@ function formatAgentTime(timestampMs: number) {
   if (!Number.isFinite(timestampMs) || timestampMs <= 0) return "";
   const value = new Date(timestampMs);
   const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const then = new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
+  const today = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  ).getTime();
+  const then = new Date(
+    value.getFullYear(),
+    value.getMonth(),
+    value.getDate(),
+  ).getTime();
   const dayDelta = Math.round((today - then) / 86_400_000);
   if (dayDelta <= 0) {
     return value.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -42,8 +50,11 @@ function formatAgentTime(timestampMs: number) {
 
 function previewText(agent: GrokBotAgent) {
   if (agent.isComposingMessage) return "Typing...";
-  if (!agent.lastEntry) return "No messages yet";
-  if (agent.lastEntry.kind === "routine") return `Routine: ${agent.lastEntry.text}`;
+  if (!agent.lastEntry) {
+    return agent.conversationTitle ? agent.name : "No messages yet";
+  }
+  if (agent.lastEntry.kind === "routine")
+    return `Routine: ${agent.lastEntry.text}`;
   return agent.lastEntry.text;
 }
 
@@ -62,7 +73,9 @@ function SidebarStatus({ agent }: { agent: GrokBotAgent }) {
           <span className="baby-grok-bot-typing-dot scale-75 [animation-delay:120ms]" />
           <span className="baby-grok-bot-typing-dot scale-75 [animation-delay:240ms]" />
         </span>
-        <span className="truncate">{agent.composingBeat?.label ?? "Typing..."}</span>
+        <span className="truncate">
+          {agent.composingBeat?.label ?? "Typing..."}
+        </span>
       </span>
     );
   }
@@ -97,15 +110,16 @@ function AgentRow({
   onKeyDown: KeyboardEventHandler<HTMLButtonElement>;
 }) {
   const unread = agent.hasUnread;
-  const unreadCount = unread ? agent.unreadCount ?? 0 : 0;
+  const unreadCount = unread ? (agent.unreadCount ?? 0) : 0;
   const working = agent.isRunning || agent.isComposingMessage;
+  const displayTitle = agent.conversationTitle ?? agent.name;
 
   return (
     <button
       aria-current={active ? "page" : undefined}
       aria-haspopup="menu"
       aria-label={[
-        agent.isGroup ? `Group ${agent.name}` : agent.name,
+        agent.isGroup ? `Group ${displayTitle}` : displayTitle,
         unreadLabel(agent),
       ]
         .filter(Boolean)
@@ -120,16 +134,20 @@ function AgentRow({
       onClick={onOpen}
       onContextMenu={onContextMenu}
       onKeyDown={onKeyDown}
-      title={collapsed ? agent.name : undefined}
+      title={collapsed ? displayTitle : undefined}
       type="button"
     >
       <span className="baby-grok-bot-agent-row__avatar">
-        <AgentAvatar agent={agent} size={collapsed ? 38 : 36} working={working} />
+        <AgentAvatar
+          agent={agent}
+          size={collapsed ? 38 : 36}
+          working={working}
+        />
       </span>
       <span className="baby-grok-bot-agent-row__body min-w-0 flex-1 text-left">
         <span className="flex items-center gap-2">
           <span className="min-w-0 flex-1 truncate text-[14px] leading-5 tracking-[-0.15px] text-[color:var(--grok-bot-sidebar-text-primary)]">
-            {agent.name}
+            {displayTitle}
           </span>
           {agent.isGroup ? (
             <span className="baby-grok-bot-chat-kind-badge">Group</span>
@@ -147,7 +165,11 @@ function AgentRow({
               aria-label={unreadLabel(agent)}
               className="baby-grok-bot-agent-row__unread flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-[var(--grok-bot-fill-accent)] px-1.5 text-[11px] leading-none font-medium text-[color:var(--grok-bot-bubble-user-ink)]"
             >
-              {unreadCount > 0 ? unreadCount : <span className="size-2 rounded-full bg-current" />}
+              {unreadCount > 0 ? (
+                unreadCount
+              ) : (
+                <span className="size-2 rounded-full bg-current" />
+              )}
             </span>
           ) : null}
         </span>
@@ -167,16 +189,21 @@ function AgentRow({
 function NewConversationMenu({
   collapsed,
   onNewChat,
+  onNewBot,
   onNewGroup,
 }: {
   collapsed: boolean;
   onNewChat: () => void;
+  onNewBot: () => void;
   onNewGroup: () => void;
 }) {
   return (
     <div
       aria-label="New conversation"
-      className={cn("baby-grok-bot-new-chat-menu", collapsed && "baby-grok-bot-new-chat-menu--collapsed")}
+      className={cn(
+        "baby-grok-bot-new-chat-menu",
+        collapsed && "baby-grok-bot-new-chat-menu--collapsed",
+      )}
       role="menu"
     >
       <button onClick={onNewChat} role="menuitem" type="button">
@@ -184,6 +211,13 @@ function NewConversationMenu({
         <span>
           <strong>New chat</strong>
           <small>Create a private bot conversation</small>
+        </span>
+      </button>
+      <button onClick={onNewBot} role="menuitem" type="button">
+        <GrokBotIcon name="person" size={14} />
+        <span>
+          <strong>New bot</strong>
+          <small>Create a reusable agent profile</small>
         </span>
       </button>
       <button onClick={onNewGroup} role="menuitem" type="button">
@@ -217,13 +251,20 @@ export function Sidebar() {
 
   const collapsed = state.isSidebarCollapsed;
   const renderedWidth = collapsed ? COLLAPSED_WIDTH : state.sidebarWidth;
-  const activeAgent = state.agents.find((agent) => agent.id === state.activeAgentId) ?? null;
+  const activeAgent =
+    state.agents.find((agent) => agent.id === state.activeAgentId) ?? null;
+  const activeBotProfile = activeAgent?.isGroup
+    ? activeAgent
+    : (state.botProfiles.find(
+        (profile) => profile.id === (activeAgent?.botId ?? activeAgent?.id),
+      ) ?? activeAgent);
   const normalizedQuery = query.trim().toLowerCase();
   const visibleAgents = state.agents
     .filter((agent) => {
       if (state.hiddenAgentIds.has(agent.id)) return false;
       if (!normalizedQuery) return true;
       return [
+        agent.conversationTitle,
         agent.name,
         agent.title,
         agent.description,
@@ -316,7 +357,10 @@ export function Sidebar() {
       case "ArrowLeft":
         nextWidth = collapsed
           ? COLLAPSED_WIDTH
-          : Math.max(SIDEBAR_COLLAPSE_AT_WIDTH - 1, state.sidebarWidth - RESIZE_STEP);
+          : Math.max(
+              SIDEBAR_COLLAPSE_AT_WIDTH - 1,
+              state.sidebarWidth - RESIZE_STEP,
+            );
         break;
       case "ArrowRight":
         nextWidth = collapsed
@@ -352,8 +396,14 @@ export function Sidebar() {
     actions.openCreateGroup();
   };
 
+  const openBot = () => {
+    setNewMenuOpen(false);
+    if (collapsed) actions.setSidebarCollapsed(false);
+    actions.openCompose("bot");
+  };
+
   const openSettings = () => {
-    actions.openSettings(activeAgent?.id);
+    actions.openSettings(activeBotProfile?.id);
   };
 
   return (
@@ -408,6 +458,7 @@ export function Sidebar() {
                 <NewConversationMenu
                   collapsed={collapsed}
                   onNewChat={openCompose}
+                  onNewBot={openBot}
                   onNewGroup={openGroup}
                 />
               ) : null}
@@ -421,7 +472,10 @@ export function Sidebar() {
               type="button"
             >
               <GrokBotIcon
-                className={cn("transition-transform motion-reduce:transition-none", collapsed && "rotate-180")}
+                className={cn(
+                  "transition-transform motion-reduce:transition-none",
+                  collapsed && "rotate-180",
+                )}
                 name="chevron-left"
                 size={14}
               />
@@ -468,9 +522,13 @@ export function Sidebar() {
             {visibleAgents.map((agent) => {
               const active = agent.id === state.activeAgentId;
               const onOpen = () => actions.openAgent(agent.id);
-              const onContextMenu: MouseEventHandler<HTMLButtonElement> = (event) =>
+              const onContextMenu: MouseEventHandler<HTMLButtonElement> = (
+                event,
+              ) =>
                 openAgentContextMenu(event, agent.id, actions.openContextMenu);
-              const onKeyDown: KeyboardEventHandler<HTMLButtonElement> = (event) =>
+              const onKeyDown: KeyboardEventHandler<HTMLButtonElement> = (
+                event,
+              ) =>
                 openAgentContextMenuFromKeyboard(
                   event,
                   agent.id,

@@ -9,10 +9,7 @@ import type {
 import { PRODUCT_AVATAR_SHAPES } from "../../lib/grok-bot/avatarShapes";
 import { AgentAvatar, GrokBotIcon } from "./AgentAvatar";
 import { GroupMembersEditor } from "./GroupMembersEditor";
-import {
-  getAvatarShapeData,
-  resolveAvatarShape,
-} from "./avatarShapeData";
+import { getAvatarShapeData, resolveAvatarShape } from "./avatarShapeData";
 
 const cn = (...values: Array<string | false | null | undefined>) =>
   values.filter(Boolean).join(" ");
@@ -80,15 +77,23 @@ function NotificationRow({
   onToggle: (enabled: boolean) => void;
 }) {
   if (!setting) {
-    return <p className="baby-grok-bot-settings-empty">No notification setting is available.</p>;
+    return (
+      <p className="baby-grok-bot-settings-empty">
+        No notification setting is available.
+      </p>
+    );
   }
 
   return (
     <div className="baby-grok-bot-settings-row">
       <span className="min-w-0 flex-1">
-        <span className="baby-grok-bot-settings-row__title">{setting.label}</span>
+        <span className="baby-grok-bot-settings-row__title">
+          {setting.label}
+        </span>
         {setting.description ? (
-          <span className="baby-grok-bot-settings-row__description">{setting.description}</span>
+          <span className="baby-grok-bot-settings-row__description">
+            {setting.description}
+          </span>
         ) : null}
       </span>
       <Toggle
@@ -112,12 +117,25 @@ export function AgentSettingsPanel({
   onOpenComputer,
 }: AgentSettingsPanelProps) {
   const { state, actions } = useGrokBotStore();
+  const activeConversation = state.agents.find(
+    (candidate) => candidate.id === state.activeAgentId,
+  );
   const agent =
-    state.agents.find((candidate) => candidate.id === (agentId ?? state.settingsAgentId)) ??
-    state.agents.find((candidate) => candidate.id === state.activeAgentId) ??
-    state.agents[0] ??
+    state.botProfiles.find(
+      (candidate) => candidate.id === (agentId ?? state.settingsAgentId),
+    ) ??
+    state.agents.find(
+      (candidate) => candidate.id === (agentId ?? state.settingsAgentId),
+    ) ??
+    state.botProfiles.find(
+      (candidate) =>
+        candidate.id === (activeConversation?.botId ?? activeConversation?.id),
+    ) ??
+    state.botProfiles[0] ??
     null;
-  const [draft, setDraft] = useState<Pick<GrokBotAgent, "name" | "title" | "description">>({
+  const [draft, setDraft] = useState<
+    Pick<GrokBotAgent, "name" | "title" | "description">
+  >({
     name: agent?.name ?? "",
     title: agent?.title ?? "",
     description: agent?.description ?? "",
@@ -149,12 +167,11 @@ export function AgentSettingsPanel({
     ) ?? null;
   const nameChanged = draft.name.trim() !== agent.name;
   const titleChanged = (draft.title ?? "") !== (agent.title ?? "");
-  const descriptionChanged = (draft.description ?? "") !== (agent.description ?? "");
+  const descriptionChanged =
+    (draft.description ?? "") !== (agent.description ?? "");
   const profileChanged = nameChanged || titleChanged || descriptionChanged;
   const avatarShape = resolveAvatarShape(agent.avatarModel?.shape ?? "blob");
-  const groupCandidates = state.agents.filter(
-    (candidate) => !candidate.isGroup && !state.hiddenAgentIds.has(candidate.id),
-  );
+  const groupCandidates = state.botProfiles;
 
   const saveProfile = () => {
     if (!draft.name.trim()) return;
@@ -168,19 +185,31 @@ export function AgentSettingsPanel({
   };
 
   return (
-    <div className={cn("baby-grok-bot-settings-panel", className)} data-agent-id={agent.id}>
+    <div
+      className={cn("baby-grok-bot-settings-panel", className)}
+      data-agent-id={agent.id}
+    >
       <div className="baby-grok-bot-settings-identity">
         <AgentAvatar agent={agent} size={44} />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[14px] font-semibold leading-5">{agent.name}</span>
+          <span className="block truncate text-[14px] font-semibold leading-5">
+            {agent.name}
+          </span>
           <span className="block truncate text-[11px] leading-4 text-[var(--cursor-text-tertiary)]">
-            {agent.isGroup ? `${agent.memberIds.length} members` : agent.title ?? "Agent profile"}
+            {agent.isGroup
+              ? `${agent.memberIds.length} members`
+              : (agent.title ?? "Agent profile")}
           </span>
         </span>
-        {agent.isGroup ? <span className="baby-grok-bot-settings-kind">Group</span> : null}
+        {agent.isGroup ? (
+          <span className="baby-grok-bot-settings-kind">Group</span>
+        ) : null}
       </div>
 
-      <Section title="Profile" description="Name and identity shown across chats and messages.">
+      <Section
+        title="Profile"
+        description="Name and identity shown across chats and messages."
+      >
         <label className="baby-grok-bot-settings-field">
           <span>Avatar shape</span>
           <select
@@ -206,7 +235,9 @@ export function AgentSettingsPanel({
           <span>Name</span>
           <input
             aria-label="Agent name"
-            onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
+            onChange={(event) =>
+              setDraft((current) => ({ ...current, name: event.target.value }))
+            }
             value={draft.name}
           />
         </label>
@@ -214,7 +245,9 @@ export function AgentSettingsPanel({
           <span>Title</span>
           <input
             aria-label="Agent title"
-            onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
+            onChange={(event) =>
+              setDraft((current) => ({ ...current, title: event.target.value }))
+            }
             placeholder="What this agent does"
             value={draft.title ?? ""}
           />
@@ -224,7 +257,10 @@ export function AgentSettingsPanel({
           <textarea
             aria-label="Agent description"
             onChange={(event) =>
-              setDraft((current) => ({ ...current, description: event.target.value }))
+              setDraft((current) => ({
+                ...current,
+                description: event.target.value,
+              }))
             }
             placeholder="Instructions and scope"
             rows={4}
@@ -257,7 +293,10 @@ export function AgentSettingsPanel({
         </div>
       </Section>
 
-      <Section title="Appearance" description="Theme applies across all conversations.">
+      <Section
+        title="Appearance"
+        description="Theme applies across all conversations."
+      >
         <label className="baby-grok-bot-settings-field">
           <span>Theme</span>
           <select
@@ -283,18 +322,32 @@ export function AgentSettingsPanel({
         />
       ) : (
         <>
-          <Section title="Tools" description="Capabilities this agent can use. Changes apply immediately.">
+          <Section
+            title="Tools"
+            description="Capabilities this agent can use. Changes apply immediately."
+          >
             <div className="baby-grok-bot-settings-tools">
               {tools.map((tool) => (
                 <div className="baby-grok-bot-settings-tool" key={tool.id}>
-                  <span className="baby-grok-bot-settings-tool__icon" aria-hidden="true">
+                  <span
+                    className="baby-grok-bot-settings-tool__icon"
+                    aria-hidden="true"
+                  >
                     <GrokBotIcon
-                      name={tool.id === "screen" ? "device-desktop" : tool.id === "email" ? "globe" : "brain"}
+                      name={
+                        tool.id === "screen"
+                          ? "device-desktop"
+                          : tool.id === "email"
+                            ? "globe"
+                            : "brain"
+                      }
                       size={14}
                     />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="baby-grok-bot-settings-row__title">{tool.label}</span>
+                    <span className="baby-grok-bot-settings-row__title">
+                      {tool.label}
+                    </span>
                     <span className="baby-grok-bot-settings-row__description">
                       {tool.description ?? permissionLabel(tool)}
                     </span>
@@ -302,19 +355,29 @@ export function AgentSettingsPanel({
                   <Toggle
                     checked={tool.isEnabled}
                     label={`${tool.label} enabled`}
-                    onChange={(enabled) => actions.setAgentToolEnabled(agent.id, tool.id, enabled)}
+                    onChange={(enabled) =>
+                      actions.setAgentToolEnabled(agent.id, tool.id, enabled)
+                    }
                   />
                 </div>
               ))}
             </div>
           </Section>
 
-          <Section title="Computer" description="Assign a cloud, local, or VNC-backed machine.">
+          <Section
+            title="Computer"
+            description="Assign a cloud, local, or VNC-backed machine."
+          >
             <label className="baby-grok-bot-settings-field">
               <span>Assigned computer</span>
               <select
                 aria-label="Assigned computer"
-                onChange={(event) => actions.assignAgentComputer(agent.id, event.target.value || null)}
+                onChange={(event) =>
+                  actions.assignAgentComputer(
+                    agent.id,
+                    event.target.value || null,
+                  )
+                }
                 value={agent.computerId ?? ""}
               >
                 <option value="">No computer</option>
@@ -326,19 +389,30 @@ export function AgentSettingsPanel({
               </select>
             </label>
             <div className="baby-grok-bot-settings-computer">
-              <span className="baby-grok-bot-settings-computer__icon" aria-hidden="true">
+              <span
+                className="baby-grok-bot-settings-computer__icon"
+                aria-hidden="true"
+              >
                 <GrokBotIcon name="device-desktop" size={15} />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="baby-grok-bot-settings-row__title">
-                  {computers.find((computer) => computer.id === agent.computerId)?.label ?? "No computer assigned"}
+                  {computers.find(
+                    (computer) => computer.id === agent.computerId,
+                  )?.label ?? "No computer assigned"}
                 </span>
                 <span className="baby-grok-bot-settings-row__description">
-                  {computers.find((computer) => computer.id === agent.computerId)?.kind ?? "Configure a runtime"}
+                  {computers.find(
+                    (computer) => computer.id === agent.computerId,
+                  )?.kind ?? "Configure a runtime"}
                 </span>
               </span>
               {onOpenComputer ? (
-                <button className="baby-grok-bot-settings-link" onClick={onOpenComputer} type="button">
+                <button
+                  className="baby-grok-bot-settings-link"
+                  onClick={onOpenComputer}
+                  type="button"
+                >
                   Open
                 </button>
               ) : null}
@@ -349,7 +423,11 @@ export function AgentSettingsPanel({
             <NotificationRow
               onToggle={(enabled) =>
                 notification &&
-                actions.setAgentSettingEnabled(agent.id, notification.id, enabled)
+                actions.setAgentSettingEnabled(
+                  agent.id,
+                  notification.id,
+                  enabled,
+                )
               }
               setting={notification}
             />
