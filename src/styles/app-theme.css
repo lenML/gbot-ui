@@ -1,0 +1,30 @@
+/* ------------------------------------------------------------------
+ * Bridges the extracted design tokens into Tailwind v4 utility namespaces so
+ * the original class lists (`bg-card`, `text-theme-text-muted`, ...) keep
+ * working verbatim.
+ * ------------------------------------------------------------------ */
+@theme inline {
+  --font-display: var(--font-x-vf, var(--font-system));
+  --font-sans: var(--font-system);
+  --font-mono: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-primary: hsl(var(--primary));
+  --color-primary-hover: hsl(var(--primary-hover));
+  --color-secondary: hsl(var(--secondary));
+  --color-border: hsl(var(--border));
+
+  --color-theme-bg: var(--color-theme-bg);
+  --color-theme-bg-subtle: var(--color-theme-bg-subtle);
+  --color-theme-text: var(--color-theme-text);
+  --color-theme-heading: var(--color-theme-heading);
+  --color-theme-text-muted: var(--color-theme-text-muted);
+  --color-theme-text-sec: var(--color-theme-text-sec);
+  --color-theme-border: var(--color-theme-border);
+  --color-theme-border-01: var(--color-theme-border-01);
+  --color-theme-border-02: var(--color-theme-border-02);
+  --color-theme-card-03-hex: var(--color-theme-card-03-hex);
+  --color-theme-product-ansi-green: var(--color-theme-product-ansi-green);
+}

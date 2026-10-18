@@ -1,0 +1,1045 @@
+/* ------------------------------------------------------------------
+ * V1 responsive fixes: these scoped rules repair responsive shells and
+ * layout constraints and scoped token delivery around the existing surfaces.
+ * ------------------------------------------------------------------ */
+
+/*
+ * Unlayered extracted rules outrank Tailwind's utility layer. Restore the
+ * intended 768px handoff so the desktop and mobile shells never coexist.
+ */
+.baby-grok-bot-mobile-root {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .baby-grok-bot-shell {
+    display: none;
+  }
+
+  .baby-grok-bot-mobile-root {
+    display: block;
+  }
+}
+
+/*
+ * DesktopShell wraps the transcript in a flex-1 block. Without making that
+ * wrapper a flex container, the transcript grows to its content height and
+ * the parent's overflow-hidden clips the lower part of long conversations.
+ */
+.baby-grok-bot-chat > .min-h-0.flex-1 {
+  display: flex;
+  flex-direction: column;
+}
+
+/*
+ * GrokBotMobileApp owns a full viewport surface. The fallback tokens cover the
+ * short interval before its nested .baby-grok-bot theme scope is resolved.
+ * --grok-bot-mobile-viewport-height is updated from visualViewport so software
+ * keyboards resize the app instead of leaving the composer below the viewport.
+ */
+[data-grok-bot-mobile-app] {
+  --grok-bot-bg-editor: #fcfcfc;
+  --grok-bot-bg-chrome: #fbfbfb;
+  --grok-bot-bg-elevated: #fcfcfc;
+  --grok-bot-bg-card: #0000000a;
+  --grok-bot-bg-tertiary: #0000000d;
+  --grok-bot-bg-active: #00000014;
+  --grok-bot-border-default: #0000001a;
+  --grok-bot-mobile-safe-top: env(safe-area-inset-top, 0px);
+  --grok-bot-mobile-safe-right: env(safe-area-inset-right, 0px);
+  --grok-bot-mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --grok-bot-mobile-safe-left: env(safe-area-inset-left, 0px);
+  background-color: var(--grok-bot-bg-editor);
+}
+
+/*
+ * 100dvh is the no-JS and desktop-preview fallback. The inline visualViewport
+ * height replaces it while the keyboard is open; top offset follows Safari's
+ * visual viewport instead of creating a second fixed bottom bar.
+ */
+@media (max-width: 767px) {
+  [data-grok-bot-mobile-app] {
+    top: var(--grok-bot-mobile-viewport-top, 0px);
+    width: 100%;
+    height: var(--grok-bot-mobile-viewport-height, 100dvh);
+    min-height: 0;
+    max-height: var(--grok-bot-mobile-viewport-height, 100dvh);
+    overscroll-behavior: none;
+  }
+}
+
+[data-grok-bot-mobile-app] .baby-grok-bot {
+  background-color: var(--grok-bot-bg-editor);
+}
+
+[data-grok-bot-mobile-app] .baby-grok-bot-mobile-surface {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background-color: var(--grok-bot-bg-editor);
+}
+
+[data-grok-bot-mobile-app] .baby-grok-bot-mobile-screen,
+[data-grok-bot-mobile-app] .baby-grok-bot-mobile-list-screen,
+[data-grok-bot-mobile-app] .baby-grok-bot-mobile-chat-screen {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+[data-grok-bot-mobile-app] .baby-grok-bot-mobile-list-screen header,
+[data-grok-bot-mobile-app] .baby-grok-bot-mobile-chat-screen header {
+  top: var(--grok-bot-mobile-safe-top);
+  right: calc(12px + var(--grok-bot-mobile-safe-right));
+  left: calc(12px + var(--grok-bot-mobile-safe-left));
+}
+
+[data-grok-bot-mobile-app] .baby-grok-bot-mobile-list-screen .baby-grok-bot-transcript {
+  padding-top: calc(48px + var(--grok-bot-mobile-safe-top));
+  padding-right: calc(8px + var(--grok-bot-mobile-safe-right));
+  padding-bottom: calc(16px + var(--grok-bot-mobile-safe-bottom));
+  padding-left: calc(8px + var(--grok-bot-mobile-safe-left));
+}
+
+[data-grok-bot-mobile-app] .baby-grok-bot-mobile-chat-screen .baby-grok-bot-transcript {
+  padding-top: calc(56px + var(--grok-bot-mobile-safe-top));
+  padding-right: calc(16px + var(--grok-bot-mobile-safe-right));
+  padding-bottom: calc(96px + var(--grok-bot-mobile-safe-bottom));
+  padding-left: calc(16px + var(--grok-bot-mobile-safe-left));
+}
+
+[data-grok-bot-mobile-app] .baby-grok-bot-mobile-chat-screen form {
+  right: calc(12px + var(--grok-bot-mobile-safe-right));
+  bottom: calc(12px + var(--grok-bot-mobile-safe-bottom));
+  left: calc(12px + var(--grok-bot-mobile-safe-left));
+}
+
+[data-grok-bot-mobile-app] .baby-grok-bot-mobile-new-agent {
+  padding-top: calc(64px + var(--grok-bot-mobile-safe-top));
+  padding-right: calc(20px + var(--grok-bot-mobile-safe-right));
+  padding-bottom: calc(20px + var(--grok-bot-mobile-safe-bottom));
+  padding-left: calc(20px + var(--grok-bot-mobile-safe-left));
+}
+
+[data-grok-bot-mobile-app] .baby-grok-bot-screen-shell {
+  height: min(92%, 760px);
+  padding-bottom: max(12px, var(--grok-bot-mobile-safe-bottom));
+}
+
+[data-grok-bot-mobile-app] .baby-grok-bot-dialog-layer {
+  padding-top: calc(24px + var(--grok-bot-mobile-safe-top));
+  padding-right: calc(24px + var(--grok-bot-mobile-safe-right));
+  padding-bottom: calc(24px + var(--grok-bot-mobile-safe-bottom));
+  padding-left: calc(24px + var(--grok-bot-mobile-safe-left));
+}
+
+/* Unified chat list and new-conversation menu. */
+.baby-grok-bot-conversation-row {
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.baby-grok-bot-conversation-row:focus-visible {
+  outline: 2px solid var(--grok-bot-current-agent-accent);
+  outline-offset: -2px;
+}
+
+.baby-grok-bot-conversation-row__group-badge {
+  padding: 0 4px;
+  font-size: 9px;
+  line-height: 13px;
+}
+
+.baby-grok-bot-agent-row[data-pinned] {
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--grok-bot-current-agent-accent) 58%, transparent);
+}
+
+.baby-grok-bot-create-conversation-sheet-layer {
+  position: absolute;
+  z-index: 260;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 12px;
+  padding-bottom: max(12px, var(--grok-bot-mobile-safe-bottom, env(safe-area-inset-bottom, 0px)));
+}
+
+.baby-grok-bot-create-conversation-sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 24%);
+  backdrop-filter: blur(4px);
+}
+
+.baby-grok-bot-create-conversation-sheet {
+  position: relative;
+  display: flex;
+  width: min(520px, 100%);
+  max-height: min(520px, calc(100dvh - 24px));
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 8px 12px 12px;
+  border: 0.5px solid var(--grok-bot-border-default);
+  border-radius: 22px;
+  background: var(--grok-bot-bg-elevated);
+  color: var(--cursor-text-primary);
+  box-shadow: 0 28px 80px -24px rgb(0 0 0 / 58%), 0 2px 8px rgb(0 0 0 / 12%);
+  animation: baby-grok-bot-sheet-up 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.baby-grok-bot-create-conversation-sheet__handle {
+  width: 36px;
+  height: 4px;
+  flex: none;
+  margin: 1px auto 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cursor-text-tertiary) 35%, transparent);
+}
+
+.baby-grok-bot-create-conversation-sheet__header {
+  padding: 4px 6px 12px;
+}
+
+.baby-grok-bot-create-conversation-sheet__header h2 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 650;
+  letter-spacing: -0.25px;
+}
+
+.baby-grok-bot-create-conversation-sheet__header p {
+  margin: 4px 0 0;
+  color: var(--cursor-text-tertiary);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.baby-grok-bot-create-conversation-sheet__options {
+  display: grid;
+  gap: 6px;
+}
+
+.baby-grok-bot-create-conversation-sheet__option {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 62px;
+  padding: 9px 10px;
+  border-radius: 14px;
+  color: var(--cursor-text-primary);
+  text-align: left;
+  transition: background-color 120ms ease;
+}
+
+.baby-grok-bot-create-conversation-sheet__option:hover,
+.baby-grok-bot-create-conversation-sheet__option:focus-visible {
+  outline: none;
+  background: var(--cursor-bg-hover);
+}
+
+.baby-grok-bot-create-conversation-sheet__option-icon {
+  display: flex;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--grok-bot-current-agent-accent) 11%, transparent);
+  color: var(--grok-bot-current-agent-accent);
+}
+
+.baby-grok-bot-create-conversation-sheet__option-icon svg,
+.baby-grok-bot-create-conversation-sheet__option-chevron svg {
+  display: block;
+  width: 21px;
+  height: 21px;
+}
+
+.baby-grok-bot-create-conversation-sheet__option-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.baby-grok-bot-create-conversation-sheet__option-copy strong {
+  font-size: 14px;
+  line-height: 19px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+}
+
+.baby-grok-bot-create-conversation-sheet__option-copy span {
+  overflow: hidden;
+  color: var(--cursor-text-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.baby-grok-bot-create-conversation-sheet__option-chevron {
+  display: flex;
+  color: var(--cursor-text-tertiary);
+}
+
+.baby-grok-bot[data-theme="cursor-dark"] .remote-desktop-wallpaper--light {
+  display: none;
+}
+
+.baby-grok-bot[data-theme="cursor-dark"] .remote-desktop-wallpaper--dark {
+  display: block;
+}
+
+.baby-grok-bot[data-theme="cursor-dark"] .remote-desktop-dock {
+  background: linear-gradient(#5052568f, #1f21256b);
+  border-color: #ffffff38;
+  box-shadow: inset 0 1px #fff3, inset 0 -0.5px #00000047, 0 3px 12px #00000061, 0 0.5px 1px #00000047;
+}
+
+.baby-grok-bot[data-theme="cursor-dark"] .remote-desktop-dock-running-indicator {
+  background: #ffffffb8;
+}
+
+@keyframes baby-grok-bot-sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(36px);
+  }
+}
+
+.baby-grok-bot-chat-kind-badge,
+.baby-grok-bot-settings-kind {
+  flex: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--grok-bot-current-agent-accent) 11%, transparent);
+  color: var(--grok-bot-current-agent-accent);
+  padding: 1px 6px;
+  font-size: 10px;
+  line-height: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.baby-grok-bot-sidebar-header:has(.baby-grok-bot-new-chat-menu) {
+  z-index: 40;
+}
+
+.baby-grok-bot-new-chat-menu {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 252px;
+  padding: 5px;
+  border: 0.5px solid var(--grok-bot-border-default);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--grok-bot-bg-elevated) 96%, transparent);
+  box-shadow: 0 18px 46px -18px rgb(0 0 0 / 48%), 0 1px 2px rgb(0 0 0 / 8%);
+  backdrop-filter: blur(22px) saturate(160%);
+}
+
+/* The sidebar clips its scroll list, but the header menu must escape it. */
+.baby-grok-bot-sidebar:has(.baby-grok-bot-new-chat-menu) {
+  overflow: visible;
+}
+
+.baby-grok-bot-new-chat-menu--collapsed {
+  right: auto;
+  left: 0;
+}
+
+.baby-grok-bot-new-chat-menu > button {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  gap: 10px;
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: var(--cursor-text-primary);
+  text-align: left;
+}
+
+.baby-grok-bot-new-chat-menu > button:hover,
+.baby-grok-bot-new-chat-menu > button:focus-visible {
+  outline: none;
+  background: var(--cursor-bg-hover);
+}
+
+.baby-grok-bot-new-chat-menu > button > svg {
+  flex: none;
+  color: var(--cursor-text-secondary);
+}
+
+.baby-grok-bot-new-chat-menu > button > span {
+  min-width: 0;
+}
+
+.baby-grok-bot-new-chat-menu strong,
+.baby-grok-bot-new-chat-menu small {
+  display: block;
+}
+
+.baby-grok-bot-new-chat-menu strong {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+}
+
+.baby-grok-bot-new-chat-menu small {
+  color: var(--cursor-text-tertiary);
+  font-size: 10px;
+  line-height: 15px;
+}
+
+/* Accessible context menu. */
+.baby-grok-bot-context-menu {
+  position: fixed;
+  z-index: 300;
+  width: max-content;
+  min-width: 216px;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 5px;
+  border: 0.5px solid var(--grok-bot-border-default);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--grok-bot-bg-elevated) 97%, transparent);
+  color: var(--cursor-text-primary);
+  box-shadow: 0 22px 54px -20px rgb(0 0 0 / 55%), 0 1px 2px rgb(0 0 0 / 10%);
+  backdrop-filter: blur(24px) saturate(165%);
+  opacity: 0;
+  transform: translateY(-3px) scale(0.97);
+  transform-origin: top left;
+  pointer-events: none;
+}
+
+.baby-grok-bot-context-menu[data-ready] {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  transition: opacity 90ms ease-out, transform 120ms cubic-bezier(0.2, 0.9, 0.3, 1.15);
+}
+
+.baby-grok-bot-context-menu__label {
+  padding: 5px 8px 6px;
+  color: var(--cursor-text-tertiary);
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.baby-grok-bot-context-menu__item {
+  display: flex;
+  width: 100%;
+  min-height: 32px;
+  align-items: center;
+  gap: 12px;
+  border-radius: 7px;
+  padding: 6px 8px;
+  color: var(--cursor-text-primary);
+  font-size: 12px;
+  line-height: 18px;
+  text-align: left;
+}
+
+.baby-grok-bot-context-menu__item:hover,
+.baby-grok-bot-context-menu__item:focus-visible {
+  outline: none;
+  background: var(--cursor-bg-hover);
+}
+
+.baby-grok-bot-context-menu__item:disabled {
+  color: var(--cursor-text-tertiary);
+  opacity: 0.6;
+}
+
+.baby-grok-bot-context-menu__item[data-danger] {
+  color: var(--grok-bot-text-danger);
+}
+
+.baby-grok-bot-context-menu__shortcut {
+  flex: none;
+  color: var(--cursor-text-tertiary);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+
+.baby-grok-bot-context-menu__separator {
+  height: 0.5px;
+  margin: 4px 5px;
+  background: var(--grok-bot-border-default);
+}
+
+.baby-grok-bot-context-menu__empty {
+  padding: 10px 8px;
+  color: var(--cursor-text-tertiary);
+  font-size: 11px;
+}
+
+/* Right-side inspector tabs and settings. */
+.baby-grok-bot-side-pane__inner {
+  width: 100%;
+  min-width: 0;
+}
+
+.baby-grok-bot-inspector-tabs {
+  display: grid;
+  flex: none;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  padding: 5px;
+  border-bottom: 0.5px solid var(--grok-bot-border-default);
+  background: color-mix(in srgb, var(--grok-bot-bg-elevated) 48%, transparent);
+}
+
+.baby-grok-bot-inspector-tabs > button {
+  display: flex;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-radius: 7px;
+  color: var(--cursor-text-tertiary);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.baby-grok-bot-inspector-tabs > button:hover {
+  background: var(--cursor-bg-hover);
+  color: var(--cursor-text-secondary);
+}
+
+.baby-grok-bot-inspector-tabs > button[data-active] {
+  background: var(--cursor-bg-active);
+  color: var(--cursor-text-primary);
+}
+
+.baby-grok-bot-settings-panel {
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--cursor-text-primary) 18%, transparent) transparent;
+}
+
+.baby-grok-bot-settings-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 8px;
+  border: 0.5px solid var(--grok-bot-border-default);
+  border-radius: 12px;
+  background: var(--cursor-bg-card);
+}
+
+.baby-grok-bot-settings-section {
+  border-top: 0.5px solid var(--grok-bot-border-default);
+  padding: 12px 2px 14px;
+}
+
+.baby-grok-bot-settings-section:first-of-type {
+  border-top: 0;
+  padding-top: 2px;
+}
+
+.baby-grok-bot-settings-section__header {
+  margin-bottom: 9px;
+}
+
+.baby-grok-bot-settings-section__header h3 {
+  margin: 0;
+  color: var(--cursor-text-primary);
+  font-size: 12px;
+  line-height: 17px;
+  font-weight: 600;
+}
+
+.baby-grok-bot-settings-section__header p,
+.baby-grok-bot-settings-row__description,
+.baby-grok-bot-settings-empty {
+  display: block;
+  margin: 2px 0 0;
+  color: var(--cursor-text-tertiary);
+  font-size: 10px;
+  line-height: 15px;
+}
+
+.baby-grok-bot-settings-section__body {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.baby-grok-bot-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--cursor-text-secondary);
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 500;
+}
+
+.baby-grok-bot-settings-field input,
+.baby-grok-bot-settings-field textarea,
+.baby-grok-bot-settings-field select {
+  width: 100%;
+  min-width: 0;
+  border: 0.5px solid var(--grok-bot-border-default);
+  border-radius: 8px;
+  background: var(--cursor-bg-input);
+  color: var(--cursor-text-primary);
+  padding: 7px 8px;
+  font-size: 12px;
+  line-height: 17px;
+  outline: none;
+}
+
+.baby-grok-bot-settings-field textarea {
+  resize: vertical;
+}
+
+.baby-grok-bot-settings-field input:focus,
+.baby-grok-bot-settings-field textarea:focus,
+.baby-grok-bot-settings-field select:focus {
+  border-color: color-mix(in srgb, var(--grok-bot-current-agent-accent) 60%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--grok-bot-current-agent-accent) 11%, transparent);
+}
+
+.baby-grok-bot-settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.baby-grok-bot-settings-save,
+.baby-grok-bot-settings-reset,
+.baby-grok-bot-settings-link {
+  min-height: 30px;
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.baby-grok-bot-settings-save {
+  background: var(--grok-bot-fill-emphasis);
+  color: var(--grok-bot-bubble-user-ink);
+}
+
+.baby-grok-bot-settings-reset {
+  color: var(--cursor-text-secondary);
+}
+
+.baby-grok-bot-settings-reset:hover,
+.baby-grok-bot-settings-link:hover {
+  background: var(--cursor-bg-hover);
+}
+
+.baby-grok-bot-settings-save:disabled,
+.baby-grok-bot-settings-reset:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.baby-grok-bot-settings-row,
+.baby-grok-bot-settings-tool,
+.baby-grok-bot-settings-computer,
+.baby-grok-bot-settings-member {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.baby-grok-bot-settings-row__title {
+  display: block;
+  overflow: hidden;
+  color: var(--cursor-text-primary);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.baby-grok-bot-settings-toggle {
+  position: relative;
+  flex: none;
+  width: 30px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--cursor-bg-active);
+  transition: background-color 120ms ease;
+}
+
+.baby-grok-bot-settings-toggle[data-checked] {
+  background: var(--grok-bot-fill-accent);
+}
+
+.baby-grok-bot-settings-toggle__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 18%);
+  transition: transform 120ms ease;
+}
+
+.baby-grok-bot-settings-toggle[data-checked] .baby-grok-bot-settings-toggle__thumb {
+  transform: translateX(12px);
+}
+
+.baby-grok-bot-settings-tools,
+.baby-grok-bot-settings-members {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.baby-grok-bot-settings-tool,
+.baby-grok-bot-settings-member {
+  min-height: 44px;
+  padding: 5px 2px;
+}
+
+.baby-grok-bot-settings-tool__icon,
+.baby-grok-bot-settings-computer__icon {
+  display: flex;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--cursor-bg-card);
+  color: var(--cursor-text-secondary);
+}
+
+.baby-grok-bot-settings-computer {
+  padding: 8px;
+  border: 0.5px solid var(--grok-bot-border-default);
+  border-radius: 10px;
+  background: var(--cursor-bg-card);
+}
+
+.baby-grok-bot-settings-link {
+  color: var(--grok-bot-current-agent-accent);
+}
+
+/* Create-group dialog. */
+.baby-grok-bot-dialog-layer {
+  position: absolute;
+  z-index: 220;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.baby-grok-bot-dialog-layer__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 28%);
+  backdrop-filter: blur(3px);
+}
+
+.baby-grok-bot-dialog {
+  position: relative;
+  display: flex;
+  width: min(520px, calc(100vw - 32px));
+  max-height: min(680px, calc(100dvh - 48px));
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 0.5px solid var(--grok-bot-border-default);
+  border-radius: 18px;
+  background: var(--grok-bot-bg-elevated);
+  color: var(--cursor-text-primary);
+  box-shadow: 0 28px 80px -24px rgb(0 0 0 / 58%), 0 2px 8px rgb(0 0 0 / 12%);
+  animation: baby-grok-bot-dialog-in 180ms cubic-bezier(0.2, 0.9, 0.3, 1.08) both;
+}
+
+@keyframes baby-grok-bot-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+
+[data-grok-bot-mobile-app] .baby-grok-bot-dialog-layer[data-presentation="sheet"] {
+  align-items: end;
+  padding: 0;
+}
+
+[data-grok-bot-mobile-app] .baby-grok-bot-dialog-layer[data-presentation="sheet"] .baby-grok-bot-dialog {
+  width: 100%;
+  max-width: none;
+  max-height: min(92dvh, 760px);
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+  border-radius: 22px 22px 0 0;
+  animation-name: baby-grok-bot-sheet-up;
+}
+
+[data-grok-bot-mobile-app] .baby-grok-bot-dialog-layer[data-presentation="sheet"] .baby-grok-bot-dialog__body {
+  padding-bottom: calc(16px + var(--grok-bot-mobile-safe-bottom));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .baby-grok-bot-create-conversation-sheet,
+  [data-grok-bot-mobile-app] .baby-grok-bot-dialog-layer[data-presentation="sheet"] .baby-grok-bot-dialog {
+    animation: none;
+  }
+}
+
+.baby-grok-bot-dialog__header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 0.5px solid var(--grok-bot-border-default);
+}
+
+.baby-grok-bot-dialog__icon {
+  display: flex;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--grok-bot-current-agent-accent) 12%, transparent);
+  color: var(--grok-bot-current-agent-accent);
+}
+
+.baby-grok-bot-dialog__header h2 {
+  margin: 0;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 650;
+}
+
+.baby-grok-bot-dialog__header p {
+  margin: 2px 0 0;
+  color: var(--cursor-text-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.baby-grok-bot-dialog__body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.baby-grok-bot-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--cursor-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.baby-grok-bot-dialog__field input {
+  width: 100%;
+  border: 0.5px solid var(--grok-bot-border-default);
+  border-radius: 10px;
+  background: var(--cursor-bg-input);
+  color: var(--cursor-text-primary);
+  padding: 9px 10px;
+  font-size: 13px;
+  line-height: 18px;
+  outline: none;
+}
+
+.baby-grok-bot-dialog__field input:focus {
+  border-color: color-mix(in srgb, var(--grok-bot-current-agent-accent) 62%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--grok-bot-current-agent-accent) 11%, transparent);
+}
+
+.baby-grok-bot-group-picker {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.baby-grok-bot-group-picker__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.baby-grok-bot-group-picker__header strong,
+.baby-grok-bot-group-picker__header small {
+  display: block;
+}
+
+.baby-grok-bot-group-picker__header strong {
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.baby-grok-bot-group-picker__header small {
+  margin-top: 1px;
+  color: var(--cursor-text-tertiary);
+  font-size: 10px;
+  line-height: 15px;
+}
+
+.baby-grok-bot-group-picker__count {
+  flex: none;
+  border-radius: 999px;
+  background: var(--cursor-bg-card);
+  color: var(--cursor-text-secondary);
+  padding: 2px 7px;
+  font-size: 10px;
+  line-height: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.baby-grok-bot-group-picker__count[data-limit] {
+  background: color-mix(in srgb, var(--grok-bot-text-warning) 13%, transparent);
+  color: var(--grok-bot-text-warning);
+}
+
+.baby-grok-bot-group-picker__list {
+  display: flex;
+  min-height: 120px;
+  max-height: 330px;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  border: 0.5px solid var(--grok-bot-border-default);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--cursor-bg-card) 58%, transparent);
+  padding: 5px;
+}
+
+.baby-grok-bot-group-candidate {
+  display: flex;
+  min-height: 50px;
+  align-items: center;
+  gap: 9px;
+  border-radius: 9px;
+  padding: 7px 8px;
+  transition: background-color 100ms ease;
+}
+
+.baby-grok-bot-group-candidate:hover,
+.baby-grok-bot-group-candidate:focus-visible {
+  outline: none;
+  background: var(--cursor-bg-hover);
+}
+
+.baby-grok-bot-group-candidate[data-selected] {
+  background: color-mix(in srgb, var(--grok-bot-current-agent-accent) 9%, transparent);
+}
+
+.baby-grok-bot-group-candidate:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.baby-grok-bot-group-candidate__check {
+  display: flex;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  border: 0.5px solid var(--grok-bot-border-default);
+  border-radius: 6px;
+  color: var(--grok-bot-bubble-user-ink);
+}
+
+.baby-grok-bot-group-candidate[data-selected] .baby-grok-bot-group-candidate__check {
+  border-color: transparent;
+  background: var(--grok-bot-fill-emphasis);
+}
+
+.baby-grok-bot-dialog__footer {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 0.5px solid var(--grok-bot-border-default);
+  background: color-mix(in srgb, var(--grok-bot-bg-elevated) 94%, transparent);
+}
+
+.baby-grok-bot-dialog__hint {
+  min-width: 0;
+  flex: 1;
+  color: var(--cursor-text-tertiary);
+  font-size: 10px;
+  line-height: 15px;
+}
+
+.baby-grok-bot-dialog__cancel,
+.baby-grok-bot-dialog__create {
+  min-height: 34px;
+  border-radius: 999px;
+  padding: 6px 13px;
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.baby-grok-bot-dialog__cancel {
+  color: var(--cursor-text-secondary);
+}
+
+.baby-grok-bot-dialog__cancel:hover {
+  background: var(--cursor-bg-hover);
+}
+
+.baby-grok-bot-dialog__create {
+  background: var(--grok-bot-fill-emphasis);
+  color: var(--grok-bot-bubble-user-ink);
+}
+
+.baby-grok-bot-dialog__create:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.baby-grok-bot-dialog__empty {
+  margin: auto;
+  color: var(--cursor-text-tertiary);
+  padding: 24px;
+  font-size: 11px;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .baby-grok-bot-context-menu[data-ready],
+  .baby-grok-bot-settings-toggle,
+  .baby-grok-bot-settings-toggle__thumb,
+  .baby-grok-bot-dialog {
+    animation: none;
+    transition: none;
+  }
+}

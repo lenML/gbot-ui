@@ -1,0 +1,43 @@
+@import "tailwindcss";
+@import "./styles/tokens.css";
+@import "./styles/app-theme.css";
+@import "./styles/baby-grok-bot.css";
+@import "./styles/avatar.css";
+@import "./styles/v1-fixes.css";
+
+@font-face {
+  font-family: "xVf";
+  src: url("/fonts/XVF-Variable.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 200 800;
+}
+
+@font-face {
+  font-family: "CursorGothic";
+  src: url("/fonts/CursorGothic-Regular.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+}
+
+:root {
+  --font-x-vf: "xVf", var(--font-system);
+  --font-cursor-gothic: "CursorGothic", var(--font-x-vf), var(--font-system);
+}
+
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--color-theme-bg);
+  color: var(--color-theme-text);
+  font-family: var(--font-system);
+  -webkit-font-smoothing: antialiased;
+}
