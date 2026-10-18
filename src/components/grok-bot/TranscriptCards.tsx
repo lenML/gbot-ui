@@ -585,22 +585,24 @@ export function OutboundMessageCard({ entry }: OutboundMessageCardProps) {
         />
       </div>
 
-      <dl className="baby-grok-bot-message-panel mt-2">
-        {isSlack ? (
-          <>
-            <MessageRow label="Workspace" value={entry.workspace} />
-            <MessageRow label="To" value={entry.to} />
-            {entry.thread ? (
-              <MessageRow label="Thread" value={entry.thread} />
-            ) : null}
-          </>
-        ) : (
-          <>
-            <MessageRow label="From" value={entry.from} />
-            <MessageRow label="To" value={entry.to} />
-            <MessageRow label="Subject" value={entry.subject} />
-          </>
-        )}
+      <div className="baby-grok-bot-message-panel mt-2">
+        <dl className="m-0">
+          {isSlack ? (
+            <>
+              <MessageRow label="Workspace" value={entry.workspace} />
+              <MessageRow label="To" value={entry.to} />
+              {entry.thread ? (
+                <MessageRow label="Thread" value={entry.thread} />
+              ) : null}
+            </>
+          ) : (
+            <>
+              <MessageRow label="From" value={entry.from} />
+              <MessageRow label="To" value={entry.to} />
+              <MessageRow label="Subject" value={entry.subject} />
+            </>
+          )}
+        </dl>
         <div className="baby-grok-bot-message-body">
           {(paragraphs.length > 0 ? paragraphs : [entry.body]).map(
             (paragraph, index) => (
@@ -610,7 +612,7 @@ export function OutboundMessageCard({ entry }: OutboundMessageCardProps) {
             ),
           )}
         </div>
-      </dl>
+      </div>
 
       {!isTerminal ? (
         <div className="mt-2.5 flex items-center gap-2">

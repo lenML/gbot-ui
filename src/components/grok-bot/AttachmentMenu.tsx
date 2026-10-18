@@ -231,6 +231,7 @@ export function AttachmentMenu({
 
       <input
         accept="image/*"
+        aria-label="Add photos"
         className="sr-only"
         multiple
         onChange={addPhotos}

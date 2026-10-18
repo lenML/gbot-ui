@@ -439,9 +439,9 @@ export function Composer() {
             aria-controls={
               mentionQuery !== null ? "grok-bot-mention-list" : undefined
             }
-            aria-expanded={mentionQuery !== null}
+            aria-expanded={mentionQuery !== null || undefined}
             aria-label={resolvePlaceholder(agent)}
-            aria-multiline="true"
+            aria-multiline={mentionQuery === null || undefined}
             className="baby-grok-bot-composer-field-input"
             contentEditable
             data-empty={isEmpty ? "" : undefined}
@@ -453,7 +453,7 @@ export function Composer() {
             onMouseUp={syncMentions}
             onPaste={handlePaste}
             ref={editorRef}
-            role="textbox"
+            role={mentionQuery === null ? "textbox" : "combobox"}
             suppressContentEditableWarning
           />
         </div>
