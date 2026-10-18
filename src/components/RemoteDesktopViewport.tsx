@@ -29,8 +29,6 @@ const SCALE_EPSILON = 0.001;
 const cn = (...values: Array<string | false | null | undefined>) =>
   values.filter(Boolean).join(" ");
 
-const DEFAULT_WALLPAPER_URL = `${import.meta.env.BASE_URL}wallpapers/cloud-agents-2.webp`;
-
 const TERMINAL_LINES = [
   { text: "$ npm run dev", opacity: 0.4 },
   { text: "ready - started on 0.0.0.0:3000", opacity: 0.25 },
@@ -430,7 +428,7 @@ const DEFAULT_WINDOWS: DesktopWindow[] = [
 export function RemoteDesktopViewport({
   expanded = false,
   onExpand,
-  wallpaperUrl = DEFAULT_WALLPAPER_URL,
+  wallpaperUrl = "/wallpapers/cloud-agents-2.webp",
   wallpaperUrlDark,
   showDock = true,
   windows = DEFAULT_WINDOWS,

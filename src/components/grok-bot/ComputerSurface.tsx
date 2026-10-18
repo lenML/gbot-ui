@@ -125,8 +125,8 @@ export function ComputerSurface({
       expanded={expanded}
       onExpand={onExpand}
       showDock={showDock}
-      wallpaperUrl={`${import.meta.env.BASE_URL}wallpapers/cloud-agents-${Math.max(1, (content.agents.findIndex((candidate) => candidate.agent.id === agent.id) % 4) + 1)}.webp`}
-      wallpaperUrlDark={`${import.meta.env.BASE_URL}wallpapers/cloud-agents-${Math.max(1, ((content.agents.findIndex((candidate) => candidate.agent.id === agent.id) + 2) % 4) + 1)}.webp`}
+      wallpaperUrl={`/wallpapers/cloud-agents-${Math.max(1, (content.agents.findIndex((candidate) => candidate.agent.id === agent.id) % 4) + 1)}.webp`}
+      wallpaperUrlDark={`/wallpapers/cloud-agents-${Math.max(1, ((content.agents.findIndex((candidate) => candidate.agent.id === agent.id) + 2) % 4) + 1)}.webp`}
       windows={fallbackWindows}
     />
   );
