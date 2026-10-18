@@ -83,6 +83,31 @@ button.baby-grok-bot-system-agent:hover,button.baby-grok-bot-system-agent:focus-
 .baby-grok-bot-pending__avatar{flex:none;justify-content:center;align-items:center;width:40px;height:40px;display:flex}
 .baby-grok-bot-pending__label{color:var(--grok-bot-text-tertiary);align-items:baseline;gap:6px;font-size:13px;line-height:1;animation:.35s cubic-bezier(.2,.8,.3,1) baby-grok-bot-pending-label-in;display:inline-flex}
 @media (prefers-reduced-motion:reduce){.baby-grok-bot-pending,.baby-grok-bot-pending__label{animation:none}}
+.baby-grok-bot-thinking{max-width:min(560px,92%);color:var(--cursor-text-secondary)}
+.baby-grok-bot-thinking__details{border:.5px solid var(--grok-bot-border-default);background:color-mix(in srgb,var(--grok-bot-bubble-agent) 72%,transparent);border-radius:12px;overflow:hidden}
+.baby-grok-bot-thinking__summary{letter-spacing:-.1px;color:var(--cursor-text-secondary);white-space:nowrap;cursor:pointer;align-items:center;gap:7px;min-width:0;padding:7px 10px;font-size:12.5px;line-height:18px;list-style:none;transition:background-color .12s;display:flex}
+.baby-grok-bot-thinking__summary::-webkit-details-marker{display:none}
+.baby-grok-bot-thinking__summary:hover{background:var(--grok-bot-bg-hover)}
+.baby-grok-bot-thinking__summary:focus-visible{outline:2px solid color-mix(in srgb,var(--grok-bot-current-agent-accent) 60%,transparent);outline-offset:-2px}
+.baby-grok-bot-thinking__dots{flex:none;justify-content:center;align-items:center;gap:3px;width:14px;display:inline-flex}
+.baby-grok-bot-thinking__dot{background:currentColor;border-radius:999px;width:4px;height:4px;animation:1.3s ease-in-out infinite baby-grok-bot-typing-dot}
+.baby-grok-bot-thinking__dot:nth-child(2){animation-delay:140ms}
+.baby-grok-bot-thinking__dot:nth-child(3){animation-delay:280ms}
+.baby-grok-bot-thinking__status{border:1.5px solid currentColor;border-radius:999px;flex:none;width:9px;height:9px}
+.baby-grok-bot-thinking[data-status=complete] .baby-grok-bot-thinking__status{color:var(--grok-bot-text-success)}
+.baby-grok-bot-thinking[data-status=stopped] .baby-grok-bot-thinking__status{color:var(--grok-bot-text-warning)}
+.baby-grok-bot-thinking__label{color:var(--cursor-text-primary);flex:none;font-weight:500}
+.baby-grok-bot-thinking__duration{color:var(--cursor-text-tertiary);flex:none;font-variant-numeric:tabular-nums}
+.baby-grok-bot-thinking__preview{text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1;overflow:hidden}
+.baby-grok-bot-thinking__chevron{border-right:1px solid currentColor;border-bottom:1px solid currentColor;flex:none;width:5px;height:5px;margin-left:2px;transform:rotate(-45deg);transition:transform .16s}
+.baby-grok-bot-thinking__details[open] .baby-grok-bot-thinking__chevron{transform:rotate(45deg)}
+.baby-grok-bot-thinking__detail{border-top:.5px solid var(--grok-bot-border-default);color:var(--cursor-text-secondary);white-space:pre-wrap;overflow-wrap:anywhere;padding:9px 10px 10px;font-size:12.5px;line-height:18px}
+.baby-grok-bot-empty-stream{justify-content:flex-start;align-items:center;gap:4px;min-width:28px;min-height:20px;display:inline-flex}
+.baby-grok-bot-empty-stream__dot{background:currentColor;border-radius:999px;width:5px;height:5px;animation:1.3s ease-in-out infinite baby-grok-bot-typing-dot}
+.baby-grok-bot-empty-stream__dot:nth-child(2){animation-delay:140ms}
+.baby-grok-bot-empty-stream__dot:nth-child(3){animation-delay:280ms}
+.baby-grok-bot-message-stopped{color:var(--cursor-text-tertiary);border:.5px solid var(--grok-bot-border-default);border-radius:999px;padding:2px 7px;font-size:11px;line-height:15px}
+@media (prefers-reduced-motion:reduce){.baby-grok-bot-thinking__dot,.baby-grok-bot-empty-stream__dot{animation:none}.baby-grok-bot-thinking__dot:first-child,.baby-grok-bot-empty-stream__dot:first-child{opacity:.35}.baby-grok-bot-thinking__dot:nth-child(2),.baby-grok-bot-empty-stream__dot:nth-child(2){opacity:.55}.baby-grok-bot-thinking__dot:nth-child(3),.baby-grok-bot-empty-stream__dot:nth-child(3){opacity:.75}.baby-grok-bot-thinking__summary,.baby-grok-bot-thinking__chevron{transition:none}}
 @keyframes baby-grok-bot-entry-enter{0%{opacity:0;transform:translateY(8px)scale(.97)}to{opacity:1;transform:translateY(0)scale(1)}}
 .baby-grok-bot-entry-enter{animation:.28s cubic-bezier(.2,.9,.3,1.15) both baby-grok-bot-entry-enter}
 [data-fresh]>.baby-grok-bot-entry-enter{animation-duration:.42s}

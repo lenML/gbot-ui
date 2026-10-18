@@ -80,6 +80,8 @@ export function entryMenuText(entry: GrokBotTranscriptEntry): string {
   switch (entry.kind) {
     case "message":
       return entry.content;
+    case "thinking":
+      return entry.text;
     case "send-message":
       return entry.message.content;
     case "system":

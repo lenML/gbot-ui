@@ -39,6 +39,7 @@ import type {
   GrokBotIntegrations,
   GrokBotOutgoingMessage,
   GrokBotReply,
+  GrokBotReplyAdapter,
   GrokBotState,
   GrokBotStoreValue,
   GrokBotToolId,
@@ -214,12 +215,14 @@ interface InternalGrokBotStore extends GrokBotStoreValue {
   activate(): void;
   deactivate(): void;
   disposeIfInactive(): void;
+  setIntegrations(integrations: GrokBotIntegrations): void;
 }
 
 function createGrokBotStore(
   content: GrokBotContent,
   requestedActiveAgentId?: string,
   requestedTheme?: BabyGrokBotTheme,
+  initialIntegrations: GrokBotIntegrations = {},
 ): InternalGrokBotStore {
   const agents = agentsFromContent(content);
   const botProfiles = botProfilesFromConversations(agents);
@@ -268,6 +271,7 @@ function createGrokBotStore(
   let activeMounts = 0;
   let sidebarWasExpandedBeforePane = false;
   let scriptEpoch = 0;
+  let integrations = initialIntegrations;
 
   const listeners = new Set<() => void>();
   const timers = new Map<ReturnType<typeof setTimeout>, () => void>();
@@ -526,11 +530,24 @@ function createGrokBotStore(
     return delayMs;
   }
 
-  function startScript(agentId: string, reply: GrokBotReply): void {
-    if (!state.agents.some((agent) => agent.id === agentId)) return;
+  function defaultReplySource(agentId: string) {
+    const responder = state.agents.find((agent) => agent.id === agentId);
+    const sourceAgent = responder?.isGroup
+      ? responder.members?.[0]
+      : responder;
+    return {
+      id: sourceAgent?.id ?? agentId,
+      kind: "agent" as const,
+      name: sourceAgent?.name ?? responder?.name ?? "Agent",
+      hue: sourceAgent?.hue ?? responder?.hue,
+      avatarShape: sourceAgent?.avatarModel?.shape,
+    };
+  }
 
-    const controller = new AbortController();
-    const generation = scriptEpoch;
+  function registerController(
+    agentId: string,
+    controller: AbortController,
+  ): void {
     scriptControllers.add(controller);
     const controllers =
       agentScriptControllers.get(agentId) ?? new Set<AbortController>();
@@ -538,26 +555,236 @@ function createGrokBotStore(
     agentScriptControllers.set(agentId, controllers);
     activeScriptCounts.set(agentId, (activeScriptCounts.get(agentId) ?? 0) + 1);
     updateAgent(agentId, { isRunning: true });
+  }
+
+  function releaseController(
+    agentId: string,
+    controller: AbortController,
+    generation: number,
+  ): void {
+    scriptControllers.delete(controller);
+    const controllers = agentScriptControllers.get(agentId);
+    controllers?.delete(controller);
+    if (controllers?.size === 0) agentScriptControllers.delete(agentId);
+    const remaining = Math.max(
+      0,
+      (activeScriptCounts.get(agentId) ?? 1) - 1,
+    );
+    if (remaining === 0) activeScriptCounts.delete(agentId);
+    else activeScriptCounts.set(agentId, remaining);
+    if (generation === scriptEpoch && !controller.signal.aborted) {
+      updateAgent(agentId, { isRunning: remaining > 0 });
+    }
+  }
+
+  function startScript(agentId: string, reply: GrokBotReply): void {
+    if (!state.agents.some((agent) => agent.id === agentId)) return;
+
+    const controller = new AbortController();
+    const generation = scriptEpoch;
+    registerController(agentId, controller);
 
     void executeScript(agentId, reply, controller.signal, generation)
       .catch(() => undefined)
-      .finally(() => {
-        scriptControllers.delete(controller);
-        const agentControllers = agentScriptControllers.get(agentId);
-        agentControllers?.delete(controller);
-        if (agentControllers?.size === 0) {
-          agentScriptControllers.delete(agentId);
-        }
-        const remaining = Math.max(
-          0,
-          (activeScriptCounts.get(agentId) ?? 1) - 1,
-        );
-        if (remaining === 0) activeScriptCounts.delete(agentId);
-        else activeScriptCounts.set(agentId, remaining);
-        if (generation === scriptEpoch && !controller.signal.aborted) {
-          updateAgent(agentId, { isRunning: remaining > 0 });
-        }
+      .finally(() => releaseController(agentId, controller, generation));
+  }
+
+  function startReplyStream(
+    agentId: string,
+    message: GrokBotOutgoingMessage,
+    adapter: GrokBotReplyAdapter,
+  ): void {
+    if (!state.agents.some((agent) => agent.id === agentId)) return;
+
+    const controller = new AbortController();
+    const generation = scriptEpoch;
+    registerController(agentId, controller);
+    updateAgent(agentId, {
+      isComposingMessage: true,
+      composingBeat: {
+        state: "waiting",
+        label: "Waiting for first token",
+      },
+      status: null,
+    });
+
+    void executeReplyStream(
+      agentId,
+      message,
+      adapter,
+      controller.signal,
+      generation,
+    )
+      .catch(() => {
+        if (controller.signal.aborted || generation !== scriptEpoch) return;
+        const transcript = state.transcripts[agentId] ?? [];
+        const nextTranscript = transcript.map((entry) => {
+          if (entry.kind === "thinking" && entry.status === "thinking") {
+            return { ...entry, status: "stopped" as const };
+          }
+          if (entry.kind === "send-message" && entry.streaming) {
+            return { ...entry, streaming: false };
+          }
+          return entry;
+        });
+        commit({
+          transcripts: { ...state.transcripts, [agentId]: nextTranscript },
+        });
+        updateAgent(agentId, {
+          isComposingMessage: false,
+          composingBeat: undefined,
+          status: { icon: "x-circle", label: "Reply failed" },
+          lastActivityAt: Date.now(),
+        });
+      })
+      .finally(() => releaseController(agentId, controller, generation));
+  }
+
+  async function executeReplyStream(
+    agentId: string,
+    message: GrokBotOutgoingMessage,
+    adapter: GrokBotReplyAdapter,
+    signal: AbortSignal,
+    generation: number,
+  ): Promise<void> {
+    const cancelled = () => signal.aborted || generation !== scriptEpoch;
+    const source = defaultReplySource(agentId);
+    let thinkingEntryId: string | null = null;
+    let messageEntryId: string | null = null;
+    let output = "";
+    let canonicalContent: string | undefined;
+
+    const ensureMessageEntry = () => {
+      if (messageEntryId) return messageEntryId;
+      messageEntryId = createLiveId();
+      appendEntry(agentId, {
+        kind: "send-message",
+        id: messageEntryId,
+        timestampMs: Date.now(),
+        author: { name: source.name, hue: source.hue },
+        source,
+        streaming: true,
+        message: { type: "text", content: "" },
       });
+      return messageEntryId;
+    };
+
+    const events = await adapter.stream({
+      agentId,
+      conversationId: agentId,
+      message,
+      signal,
+    });
+    if (cancelled()) return;
+
+    events: for await (const event of events) {
+      if (cancelled()) return;
+
+      switch (event.type) {
+        case "thinking": {
+          if (!event.text.trim()) break;
+          if (!thinkingEntryId) {
+            thinkingEntryId = createLiveId();
+            appendEntry(agentId, {
+              kind: "thinking",
+              id: thinkingEntryId,
+              text: event.text,
+              status: event.done ? "complete" : "thinking",
+              durationMs: event.durationMs,
+              timestampMs: Date.now(),
+            });
+          } else {
+            updateEntry(agentId, thinkingEntryId, (entry) =>
+              entry.kind === "thinking"
+                ? {
+                    ...entry,
+                    text: event.text,
+                    status: event.done ? "complete" : entry.status,
+                    durationMs: event.durationMs ?? entry.durationMs,
+                  }
+                : entry,
+            );
+          }
+          break;
+        }
+        case "text-delta": {
+          if (!event.delta) break;
+          const entryId = ensureMessageEntry();
+          if (!output) {
+            updateAgent(agentId, {
+              composingBeat: { state: "streaming", label: "Streaming" },
+            });
+            if (thinkingEntryId) {
+              updateEntry(agentId, thinkingEntryId, (entry) =>
+                entry.kind === "thinking" && entry.status === "thinking"
+                  ? { ...entry, status: "complete" }
+                  : entry,
+              );
+            }
+          }
+          output += event.delta;
+          updateEntry(agentId, entryId, (entry) =>
+            entry.kind === "send-message"
+              ? {
+                  ...entry,
+                  message: { ...entry.message, content: output },
+                }
+              : entry,
+          );
+          break;
+        }
+        case "done": {
+          canonicalContent = event.content;
+          break events;
+        }
+      }
+    }
+
+    if (cancelled()) return;
+    if (thinkingEntryId) {
+      updateEntry(agentId, thinkingEntryId, (entry) =>
+        entry.kind === "thinking" && entry.status === "thinking"
+          ? { ...entry, status: "complete" }
+          : entry,
+      );
+    }
+    const finalContent = canonicalContent ?? output;
+    if (messageEntryId) {
+      updateEntry(agentId, messageEntryId, (entry) =>
+        entry.kind === "send-message"
+          ? {
+              ...entry,
+              streaming: false,
+              message: { ...entry.message, content: finalContent },
+            }
+          : entry,
+      );
+    } else if (finalContent) {
+      const entryId = ensureMessageEntry();
+      updateEntry(agentId, entryId, (entry) =>
+        entry.kind === "send-message"
+          ? {
+              ...entry,
+              streaming: false,
+              message: { ...entry.message, content: finalContent },
+            }
+          : entry,
+      );
+    }
+
+    const currentAgent = state.agents.find((agent) => agent.id === agentId);
+    const isUnread = state.activeAgentId !== agentId;
+    updateAgent(agentId, {
+      isComposingMessage: false,
+      composingBeat: undefined,
+      status: null,
+      ...(finalContent
+        ? { lastEntry: { kind: "text" as const, text: summarize(finalContent) } }
+        : {}),
+      lastActivityAt: Date.now(),
+      hasUnread: isUnread,
+      unreadCount: isUnread ? (currentAgent?.unreadCount ?? 0) + 1 : 0,
+    });
   }
 
   async function executeScript(
@@ -574,15 +801,40 @@ function createGrokBotStore(
       switch (step.kind) {
         case "message": {
           const composingBeat = step.pending;
+          let thinkingEntryId: string | undefined;
+
+          if (step.thinking) {
+            thinkingEntryId = createLiveId();
+            appendEntry(agentId, {
+              kind: "thinking",
+              id: thinkingEntryId,
+              text: step.thinking.text,
+              status: "thinking",
+              timestampMs: Date.now(),
+            });
+
+            const thinkingStartedAt = Date.now();
+            const thinkingCompleted = await sleep(
+              Math.max(0, step.thinking.durationMs ?? 1_200),
+              signal,
+            );
+            if (!thinkingCompleted || cancelled()) return;
+
+            updateEntry(agentId, thinkingEntryId, (entry) =>
+              entry.kind === "thinking"
+                ? {
+                    ...entry,
+                    status: "complete",
+                    durationMs: Date.now() - thinkingStartedAt,
+                  }
+                : entry,
+            );
+          }
+
           updateAgent(agentId, {
             isComposingMessage: true,
             composingBeat,
           });
-          const completed = await sleep(
-            messageDelay(step.content, composingBeat),
-            signal,
-          );
-          if (!completed || cancelled()) return;
 
           const responder = state.agents.find((agent) => agent.id === agentId);
           const sourceAgent = responder?.isGroup
@@ -595,14 +847,52 @@ function createGrokBotStore(
             hue: sourceAgent?.hue ?? responder?.hue,
             avatarShape: sourceAgent?.avatarModel?.shape,
           };
+          const messageEntryId = createLiveId();
           appendEntry(agentId, {
             kind: "send-message",
-            id: createLiveId(),
+            id: messageEntryId,
             timestampMs: Date.now(),
             author: { name: replySource.name, hue: replySource.hue },
             source: replySource,
-            message: { type: "text", content: step.content },
+            streaming: true,
+            message: { type: "text", content: "" },
           });
+
+          const characters = Array.from(step.content);
+          const chunkSize = Math.max(
+            1,
+            Math.floor(step.chunkSize ?? 8),
+          );
+          const intervalMs = Math.max(16, step.intervalMs ?? 42);
+          const firstTokenDelayMs = messageDelay(step.content, composingBeat);
+          let cursor = 0;
+
+          do {
+            const streamed = await sleep(
+              cursor === 0 ? firstTokenDelayMs : intervalMs,
+              signal,
+            );
+            if (!streamed || cancelled()) return;
+
+            if (cursor === 0) {
+              updateAgent(agentId, {
+                composingBeat: { state: "streaming", label: "Streaming" },
+              });
+            }
+            cursor = Math.min(characters.length, cursor + chunkSize);
+            updateEntry(agentId, messageEntryId, (entry) =>
+              entry.kind === "send-message"
+                ? {
+                    ...entry,
+                    streaming: cursor < characters.length,
+                    message: {
+                      ...entry.message,
+                      content: characters.slice(0, cursor).join(""),
+                    },
+                  }
+                : entry,
+            );
+          } while (cursor < characters.length);
 
           const currentAgent = state.agents.find(
             (agent) => agent.id === agentId,
@@ -824,6 +1114,53 @@ function createGrokBotStore(
     }
   }
 
+  function stopGenerating(requestedAgentId?: string): void {
+    const agentId = requestedAgentId ?? state.activeAgentId;
+    if (!state.agents.some((agent) => agent.id === agentId)) return;
+
+    const controllers = agentScriptControllers.get(agentId);
+    if (controllers) {
+      for (const controller of [...controllers]) controller.abort();
+    }
+
+    const transcript = state.transcripts[agentId] ?? [];
+    const stoppedAt = Date.now();
+    let changed = false;
+    const nextTranscript = transcript.map((entry) => {
+      if (entry.kind === "thinking" && entry.status === "thinking") {
+        changed = true;
+        return {
+          ...entry,
+          status: "stopped" as const,
+          durationMs: Math.max(
+            0,
+            stoppedAt - (entry.timestampMs ?? stoppedAt),
+          ),
+        };
+      }
+      if (entry.kind === "send-message" && entry.streaming) {
+        changed = true;
+        return { ...entry, streaming: false, interrupted: true };
+      }
+      return entry;
+    });
+
+    if (changed) {
+      commit({
+        transcripts: {
+          ...state.transcripts,
+          [agentId]: nextTranscript,
+        },
+      });
+    }
+    activeScriptCounts.delete(agentId);
+    updateAgent(agentId, {
+      isRunning: false,
+      isComposingMessage: false,
+      composingBeat: undefined,
+    });
+  }
+
   function setDesktopPaneOpen(open: boolean): void {
     if (open === state.isDesktopPaneOpen) return;
     if (open) {
@@ -929,6 +1266,7 @@ function createGrokBotStore(
         ),
       },
       lastActivityAt: Date.now(),
+      status: null,
       ...((() => {
         const title = state.agents.find(
           (agent) => agent.id === agentId && !agent.isGroup,
@@ -945,6 +1283,10 @@ function createGrokBotStore(
 
     const matchText =
       message || attachments.map((attachment) => attachment.kind).join(" ");
+    if (integrations.reply) {
+      startReplyStream(agentId, outgoing, integrations.reply);
+      return;
+    }
     const reply = findReplyScript(state.content.replies, matchText);
     if (reply) startScript(agentId, reply);
   }
@@ -1822,6 +2164,7 @@ function createGrokBotStore(
     resizeDesktopPane,
     setAgentSettingEnabled,
     startScript,
+    stopGenerating,
     setPanelResizing(isResizing: boolean) {
       commit({ isPanelResizing: isResizing });
     },
@@ -1858,6 +2201,9 @@ function createGrokBotStore(
     disposeIfInactive() {
       if (activeMounts === 0) destroy();
     },
+    setIntegrations(nextIntegrations) {
+      integrations = nextIntegrations;
+    },
   };
 }
 
@@ -1890,8 +2236,13 @@ export function GrokBotStoreProvider({
       content ?? DEFAULT_DEMO_CONTENT,
       activeConversationId ?? activeAgentId,
       theme,
+      integrations,
     ),
   );
+
+  useEffect(() => {
+    store.setIntegrations(integrations ?? {});
+  }, [integrations, store]);
 
   useEffect(() => {
     if (theme) store.actions.setTheme(theme);

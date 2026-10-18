@@ -14,7 +14,10 @@ import type {
   GrokBotAgent,
   GrokBotOutgoingMessage,
 } from "../../lib/grok-bot/types";
-import { useGrokBotActions } from "../../lib/grok-bot/store";
+import {
+  useActiveAgent,
+  useGrokBotActions,
+} from "../../lib/grok-bot/store";
 import { AgentAvatar } from "./AgentAvatar";
 import {
   AttachmentMenu,
@@ -117,6 +120,8 @@ export function MobileComposer({
   onSubmit,
 }: MobileComposerProps) {
   const actions = useGrokBotActions();
+  const activeAgent = useActiveAgent();
+  const isRunning = activeAgent?.id === agentId && activeAgent.isRunning;
   const fieldRef = useRef<HTMLDivElement>(null);
   const [empty, setEmpty] = useState(true);
   const [composerHeight, setComposerHeight] = useState(MIN_COMPOSER_HEIGHT);
@@ -447,30 +452,52 @@ export function MobileComposer({
           />
         </div>
 
-        <AsrButton onCancel={() => fieldRef.current?.focus()} onTranscript={insertTranscript} />
-        {!empty || attachments.length > 0 ? (
+        {isRunning ? (
           <button
-            aria-label="Send"
-            className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--grok-bot-fill-emphasis)] text-[color:var(--grok-bot-bubble-user-ink)]"
-            type="submit"
+            aria-label="Stop generating"
+            className="-my-2 flex size-11 shrink-0 items-center justify-center rounded-full text-[color:var(--cursor-text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--grok-bot-current-agent-accent)]"
+            onClick={() => actions.stopGenerating(agentId)}
+            title="Stop generating"
+            type="button"
           >
-            <svg
-              aria-hidden="true"
-              fill="none"
-              height="14"
-              viewBox="0 0 16 16"
-              width="14"
-            >
-              <path
-                d="M8 13V3m0 0L4.5 6.5M8 3l3.5 3.5"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1.5"
+            <span className="flex size-7 items-center justify-center rounded-full bg-[var(--grok-bot-fill-secondary)] transition-colors hover:bg-[var(--grok-bot-bg-active)]">
+              <span
+                aria-hidden="true"
+                className="size-2.5 rounded-[3px] bg-current"
               />
-            </svg>
+            </span>
           </button>
-        ) : null}
+        ) : (
+          <>
+            <AsrButton
+              onCancel={() => fieldRef.current?.focus()}
+              onTranscript={insertTranscript}
+            />
+            {!empty || attachments.length > 0 ? (
+              <button
+                aria-label="Send"
+                className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--grok-bot-fill-emphasis)] text-[color:var(--grok-bot-bubble-user-ink)]"
+                type="submit"
+              >
+                <svg
+                  aria-hidden="true"
+                  fill="none"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  width="14"
+                >
+                  <path
+                    d="M8 13V3m0 0L4.5 6.5M8 3l3.5 3.5"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="1.5"
+                  />
+                </svg>
+              </button>
+            ) : null}
+          </>
+        )}
       </div>
       </div>
     </form>

@@ -259,9 +259,33 @@ export interface GrokBotAsrAdapter {
   stop(): void | Promise<void>;
 }
 
+export type GrokBotReplyStreamEvent =
+  | {
+      type: "thinking";
+      text: string;
+      done?: boolean;
+      durationMs?: number;
+    }
+  | { type: "text-delta"; delta: string }
+  | { type: "done"; content?: string };
+
+export interface GrokBotReplyStreamInput {
+  agentId: string;
+  conversationId: string;
+  message: GrokBotOutgoingMessage;
+  signal: AbortSignal;
+}
+
+export interface GrokBotReplyAdapter {
+  stream(
+    input: GrokBotReplyStreamInput,
+  ): AsyncIterable<GrokBotReplyStreamEvent> | Promise<AsyncIterable<GrokBotReplyStreamEvent>>;
+}
+
 export interface GrokBotIntegrations {
   computer?: GrokBotComputerAdapter;
   asr?: GrokBotAsrAdapter;
+  reply?: GrokBotReplyAdapter;
 }
 
 export interface GrokBotAgent {
@@ -324,6 +348,7 @@ interface BaseEntry {
   timestampMs?: number;
   reactions?: string[];
   streaming?: boolean;
+  interrupted?: boolean;
   source?: GrokBotMessageSource;
 }
 export interface TranscriptTextEntry extends BaseEntry {
@@ -332,6 +357,13 @@ export interface TranscriptTextEntry extends BaseEntry {
   author?: string;
   content: string;
   attachments?: GrokBotMessageAttachment[];
+}
+export type TranscriptThinkingStatus = "thinking" | "complete" | "stopped";
+export interface TranscriptThinkingEntry extends BaseEntry {
+  kind: "thinking";
+  text: string;
+  durationMs?: number;
+  status?: TranscriptThinkingStatus;
 }
 export interface TranscriptSendMessageEntry extends BaseEntry {
   kind: "send-message";
@@ -399,6 +431,7 @@ export interface TranscriptOutboundMessageEntry extends BaseEntry {
 
 export type GrokBotTranscriptEntry =
   | TranscriptTextEntry
+  | TranscriptThinkingEntry
   | TranscriptSendMessageEntry
   | TranscriptSystemEntry
   | TranscriptMultipleChoiceEntry
@@ -421,6 +454,9 @@ export interface GrokBotReply {
         kind: "message";
         content: string;
         pending?: ComposingBeat;
+        thinking?: { text: string; durationMs?: number };
+        chunkSize?: number;
+        intervalMs?: number;
         source?: GrokBotMessageSource;
       }
     | {
@@ -590,6 +626,7 @@ export interface GrokBotActions {
     enabled: boolean,
   ): void;
   startScript(agentId: string, reply: GrokBotReply): void;
+  stopGenerating(agentId?: string): void;
   setScriptedComposerText(text: string | null): void;
   setScriptedScreen(screen: unknown): void;
   applyEndState(content: GrokBotContent, activeAgentId: string): void;

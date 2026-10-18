@@ -9,6 +9,7 @@ import type {
   GrokBotMessageSource,
   GrokBotMessageSourceKind,
   GrokBotTranscriptEntry,
+  TranscriptThinkingEntry,
 } from "../../lib/grok-bot/types";
 import { GrokBotMark } from "../GrokBotMark";
 import {
@@ -181,6 +182,7 @@ interface MessageViewProps {
   attachments?: readonly GrokBotMessageAttachment[];
   author?: string;
   content: string;
+  interrupted?: boolean;
   reactions?: readonly string[];
   role: "user" | "assistant";
   source?: GrokBotMessageSource;
@@ -261,6 +263,7 @@ function MessageView({
   attachments,
   author,
   content,
+  interrupted = false,
   reactions,
   role,
   source,
@@ -291,8 +294,22 @@ function MessageView({
       )}
       style={bubbleStyle}
     >
-      {renderMarkdown(content)}
-      {streaming ? <StreamingCaret /> : null}
+      {streaming && content.trim().length === 0 ? (
+        <span
+          aria-label="Waiting for first token"
+          className="baby-grok-bot-empty-stream"
+          role="status"
+        >
+          {[0, 1, 2].map((dot) => (
+            <span className="baby-grok-bot-empty-stream__dot" key={dot} />
+          ))}
+        </span>
+      ) : (
+        <>
+          {renderMarkdown(content)}
+          {streaming ? <StreamingCaret /> : null}
+        </>
+      )}
     </div>
   ) : null;
 
@@ -321,6 +338,11 @@ function MessageView({
           <TranscriptAttachments attachments={attachments} />
         ) : null}
         {bubble}
+        {interrupted ? (
+          <span className="baby-grok-bot-message-stopped" role="status">
+            Stopped
+          </span>
+        ) : null}
         {reactions && reactions.length > 0 ? (
           <Reactions reactions={reactions} side="agent" />
         ) : null}
@@ -331,6 +353,72 @@ function MessageView({
 
 function CardMessage({ children }: { children: ReactNode }) {
   return <div className="max-w-[min(420px,92%)]">{children}</div>;
+}
+
+function formatThinkingDuration(durationMs?: number): string | null {
+  if (durationMs == null || !Number.isFinite(durationMs)) return null;
+  const seconds = Math.max(0.1, durationMs / 1_000);
+  return seconds < 10
+    ? `${seconds.toFixed(1)}s`
+    : `${Math.round(seconds)}s`;
+}
+
+function ThinkingRow({ entry }: { entry: TranscriptThinkingEntry }) {
+  const status = entry.status ?? "complete";
+  const [isOpen, setIsOpen] = useState(status === "thinking");
+  const previousStatusRef = useRef(status);
+  const duration = formatThinkingDuration(entry.durationMs);
+
+  useEffect(() => {
+    if (previousStatusRef.current === "thinking" && status !== "thinking") {
+      setIsOpen(false);
+    }
+    previousStatusRef.current = status;
+  }, [status]);
+  const label =
+    status === "thinking"
+      ? "Thinking"
+      : status === "stopped"
+        ? "Thinking stopped"
+        : "Thought";
+
+  return (
+    <div className="baby-grok-bot-thinking" data-status={status}>
+      <details
+        className="baby-grok-bot-thinking__details"
+        onToggle={(event) => setIsOpen(event.currentTarget.open)}
+        open={isOpen}
+      >
+        <summary className="baby-grok-bot-thinking__summary">
+          {status === "thinking" ? (
+            <span
+              aria-hidden="true"
+              className="baby-grok-bot-thinking__dots"
+            >
+              {[0, 1, 2].map((dot) => (
+                <span className="baby-grok-bot-thinking__dot" key={dot} />
+              ))}
+            </span>
+          ) : (
+            <span
+              aria-hidden="true"
+              className="baby-grok-bot-thinking__status"
+            />
+          )}
+          <span className="baby-grok-bot-thinking__label">{label}</span>
+          {duration ? (
+            <span className="baby-grok-bot-thinking__duration">{duration}</span>
+          ) : null}
+          <span className="baby-grok-bot-thinking__preview">{entry.text}</span>
+          <span
+            aria-hidden="true"
+            className="baby-grok-bot-thinking__chevron"
+          />
+        </summary>
+        <div className="baby-grok-bot-thinking__detail">{entry.text}</div>
+      </details>
+    </div>
+  );
 }
 
 function EntryContent({ entry }: { entry: GrokBotTranscriptEntry }) {
@@ -347,11 +435,14 @@ function EntryContent({ entry }: { entry: GrokBotTranscriptEntry }) {
           streaming={entry.streaming}
         />
       );
+    case "thinking":
+      return <ThinkingRow entry={entry} />;
     case "send-message":
       return entry.message.type === "text" ? (
         <MessageView
           author={entry.author?.name}
           content={entry.message.content}
+          interrupted={entry.interrupted}
           reactions={entry.reactions}
           role="assistant"
           source={entry.source}
@@ -400,6 +491,8 @@ function entrySignature(entry: GrokBotTranscriptEntry | undefined): string {
   switch (entry.kind) {
     case "message":
       return `${entry.kind}:${entry.id}:${entry.content}:${entry.streaming ?? false}:${entry.attachments?.map((attachment) => attachment.id).join(",") ?? ""}`;
+    case "thinking":
+      return `${entry.kind}:${entry.id}:${entry.status ?? "complete"}:${entry.durationMs ?? ""}:${entry.text}`;
     case "send-message":
       return `${entry.kind}:${entry.id}:${entry.message.content}:${entry.streaming ?? false}`;
     case "system":
@@ -577,7 +670,8 @@ export function GrokBotTranscript({
   const lastEntry = entries.at(-1);
   const showComposing =
     isAgentComposing &&
-    !(lastEntry?.kind === "send-message" && lastEntry.streaming === true);
+    !(lastEntry?.kind === "send-message" && lastEntry.streaming === true) &&
+    !(lastEntry?.kind === "thinking" && lastEntry.status === "thinking");
 
   return (
     <div

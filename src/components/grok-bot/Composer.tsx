@@ -460,10 +460,10 @@ export function Composer() {
 
         {stopVisible ? (
           <button
-            aria-label="Agent is working"
-            className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--grok-bot-fill-secondary)] text-[color:var(--cursor-text-secondary)]"
-            disabled
-            title="Agent is working"
+            aria-label="Stop generating"
+            className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--grok-bot-fill-secondary)] text-[color:var(--cursor-text-secondary)] transition-colors hover:bg-[var(--grok-bot-bg-active)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--grok-bot-current-agent-accent)]"
+            onClick={() => actions.stopGenerating(agent?.id)}
+            title="Stop generating"
             type="button"
           >
             <span

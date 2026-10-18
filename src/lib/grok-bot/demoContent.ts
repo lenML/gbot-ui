@@ -605,12 +605,18 @@ export function createDemoContent(): GrokBotContent {
       entries: [
         {
           kind: "message",
+          thinking: {
+            text: "Reading the request, checking available tools, and shaping a concise response.",
+            durationMs: 1_100,
+          },
           pending: {
             state: "working",
-            label: "Working",
-            minMs: 450,
-            maxMs: 1_400,
+            label: "Waiting for first token",
+            minMs: 900,
+            maxMs: 900,
           },
+          chunkSize: 4,
+          intervalMs: 65,
           content:
             "On it. I will take this from here and come back when there is something for you to review.",
         },
