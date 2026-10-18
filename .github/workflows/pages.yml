@@ -3,6 +3,17 @@ name: Deploy demo to GitHub Pages
 on:
   push:
     branches: [main]
+    paths:
+      - "src/**"
+      - "public/**"
+      - "index.html"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "tsconfig.json"
+      - "tsconfig.lib.json"
+      - "vite.config.ts"
+      - "vite.lib.config.ts"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
