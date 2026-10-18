@@ -76,15 +76,15 @@ Dark theme 可直接指定，也可在 desktop Settings 或 mobile header 按钮
 开发服务提供独立入口：
 
 ```text
-http://localhost:5173/#replica
-http://localhost:5173/#extensibility
+http://localhost:5273/#replica
+http://localhost:5273/#extensibility
 ```
 
-`#extensibility` 实时展示 Content、Identity、Appearance、Runtime、Slots、Headless 六层 public API，并单独标记尚未稳定的 transport boundary。Lab 可独立开关四个 slot，验证默认回退、desktop/mobile 布局和 store quick action。
+`#extensibility` 实时展示 Content、Identity、Appearance、Runtime、Slots、Headless 六层 public API，并单独标记尚未稳定的 transport boundary。Lab 可独立开关五个 slot，验证默认回退、desktop/mobile 布局和 store quick action。
 
 ## Slot Overrides
 
-`slots` 可替换 conversation row、chat header、transcript entry 和 composer。Header/composer 会收到 `surface`；mobile header 额外收到 `onBack`。
+`slots` 可替换 conversation row、chat header、transcript entry、message content 和 composer。Header/composer 会收到 `surface`；mobile header 额外收到 `onBack`。
 
 ```tsx
 import {
@@ -122,6 +122,34 @@ export function App() {
 ```
 
 替换 row/header 时必须转发 slot props 的交互回调；替换 transcript entry/composer 时应继续渲染 `children`，以保留默认时间线、附件、ASR 和提交逻辑。
+
+## Markdown
+
+默认 renderer 安全支持标题、段落、列表、task list、引用、表格、分隔线、代码块/复制、HTTP(S) 链接、粗体、斜体、删除线、行内代码、mention、行内 math fallback 和块级 `$$` math fallback；不执行 raw HTML。
+
+完整 CommonMark/GFM、Mermaid、KaTeX 或宿主设计系统可替换 `messageContent` slot。`children` 是默认 renderer，可选择包装或完全替换：
+
+```tsx
+import ReactMarkdown from "react-markdown";
+import {
+  GrokBotApp,
+  type GrokBotMessageContentSlotProps,
+} from "baby-grok-bot";
+
+function MarkdownSlot({
+  content,
+}: GrokBotMessageContentSlotProps) {
+  return <ReactMarkdown>{content}</ReactMarkdown>;
+}
+
+export function App() {
+  return (
+    <GrokBotApp slots={{ messageContent: MarkdownSlot }} />
+  );
+}
+```
+
+`streaming`、`role` 与消息 `source` 同时传入，宿主可切换流式插件、语法高亮、Mermaid 或来源专用 renderer。
 
 `GrokBotApp` 默认使用 `DEFAULT_DEMO_CONTENT`。传入自有 `GrokBotContent` 可替换 agent、transcript、tools、computers、replies 与 settings。
 
@@ -270,7 +298,7 @@ const content = {
 - 公共主入口：`GrokBotApp`。
 - 公共状态入口：`GrokBotStoreProvider`、`useGrokBotStore`、`useGrokBotActions`、`setTheme`、active/content selector hooks。
 - 公共类型：`GrokBotContent`、`GrokBotIntegrations`、`GrokBotComputerAdapter`、`GrokBotAsrAdapter`、`GrokBotReplyAdapter`、`GrokBotReplyStreamEvent`、`GrokBotSlots`、`GrokBotSlotSurface`、transcript entry union、agent/tool/computer settings。
-- Slot override：`conversationRow`、`chatHeader`、`transcriptEntry`、`composer`；header/composer 覆盖同时服务 desktop/mobile。
+- Slot override：`conversationRow`、`chatHeader`、`transcriptEntry`、`messageContent`、`composer`；header/composer 覆盖同时服务 desktop/mobile。
 - `ComputerSurface`、`AsrButton`、`AttachmentMenu`、`ContextMenu`、`CreateConversationSheet`、`CreateGroupDialog`、`AgentSettingsPanel`、`GrokBotAvatarMark` 同时作为低层组件导出；主接入入口仍推荐 `GrokBotApp`。
 - computer adapter 接入 `computer-use` transcript card、desktop 右侧 computer preview 与 screen overlay。三者共用 `ComputerSurface` 生命周期。
 - 省略 `integrations.computer` 时使用 `RemoteDesktopViewport` demo；省略 `integrations.asr` 时使用 demo partial/final transcript。
@@ -283,6 +311,7 @@ const content = {
 - agent/group 切换、new chat、new group、最多 6 个成员的 member picker
 - PC 右侧 computer/settings pane、profile、tools、computer assignment、notifications
 - chat header、transcript、composer、mentions、消息 source、typing 与 unread 状态
+- safe Markdown renderer、`messageContent` slot、流式 caret、代码复制、消息 hover rail 与右键菜单
 - message、system、multiple-choice、computer-use、pull-request、outbound-message entries
 - 动态 SVG avatar 的 5 种 shape、7 种 state、group member stack 与 reduced motion
 - desktop pane、screen overlay、remote desktop、VNC/noVNC adapter bridge
